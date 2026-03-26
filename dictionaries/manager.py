@@ -42,6 +42,11 @@ class DictionaryManager:
         self.dictionaries[dict_data['name']] = dict_data
         return dict_data['name']
 
+    def reload_dictionaries(self):
+        """Перезагрузка словарей из директории"""
+        self.dictionaries.clear()
+        self._load_default_dictionaries()
+
     def get_dictionary_info(self, name: str) -> Dict:
         """Получение информации о словаре"""
         return self.dictionaries.get(name, {})
