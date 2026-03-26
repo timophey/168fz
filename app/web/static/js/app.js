@@ -3,7 +3,7 @@ let currentReport = null;
 let reportFormat = 'table';
 
 // Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
+function init() {
     loadDictionariesStatus();
     loadSyncStatus();
     loadSources();
@@ -12,7 +12,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('reportFormat').addEventListener('change', function(e) {
         reportFormat = e.target.value;
     });
-});
+}
+
+// Запуск инициализации - если DOM уже загружен, вызываем сразу,
+// иначе ждем события DOMContentLoaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
 
 // ==================== API CALLS ====================
 
