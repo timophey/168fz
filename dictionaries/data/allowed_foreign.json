@@ -1,0 +1,21 @@
+{
+  "name": "allowed_foreign",
+  "version": "1.0",
+  "source": "демо-словарь",
+  "description": "Слова, которые разрешены к использованию без ограничений согласно закону 168-ФЗ (международные стандарты, собственные имена, устоявшиеся термины)",
+  "words": [
+    "xs", "s", "m", "l", "xl", "xxl", "xxxl", "xxxxl",
+    "row", "model", "collection", "edition", "version",
+    "premium", "classic", "modern", "casual", "formal",
+    "summer", "winter", "spring", "autumn", "fall",
+    "collection", "line", "series",
+    "cotton", "silk", "wool", "linen", "denim",
+    "leather", "suede", "velvet", "knit",
+    "t-shirt", "polo", "hoodie", "sneakers", "boots",
+    "sandals", "heels", "flats", "loafers",
+    "zip", "button", "collar", "sleeve",
+    "v-neck", "round neck", "crew neck",
+    "a-line", "sheath", "wrap", "maxi", "midi", "mini",
+    "new", "sale", "sale'"
+  ]
+}

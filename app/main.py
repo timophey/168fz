@@ -64,9 +64,10 @@ async def check_text(request: Request):
     """
     Проверка текста на соответствие закону 168-ФЗ
     
-    Принимает JSON с одним из полей:
+    Принимает JSON с полями:
     - text: прямой текст для проверки
     - url: URL страницы для извлечения и проверки
+    - allowed_words: (опционально) список дополнительных разрешенных иностранных слов
     
     Returns:
         Детальный отчет со всеми словами текста
@@ -75,6 +76,7 @@ async def check_text(request: Request):
         data = await request.json()
         text = data.get('text', '').strip()
         url = data.get('url', '').strip()
+        allowed_words = data.get('allowed_words', [])
         source_info = None
         
         if not text and not url:
@@ -94,7 +96,7 @@ async def check_text(request: Request):
                 raise HTTPException(status_code=400, detail="Не удалось извлечь текст из URL")
         
         # Проверка текста
-        results = checker.check_text(text)
+        results = checker.check_text(text, allowed_words=allowed_words)
         
         # Добавляем информацию об источнике
         if source_info:

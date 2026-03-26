@@ -143,6 +143,8 @@ class DictionaryManager:
             return 'Запрещенные слова'
         elif any(k in name_lower for k in ['иностранные', 'заимствования']):
             return 'Иностранные слова'
+        elif 'allowed_foreign' in name_lower:
+            return 'Разрешенные иностранные термины'
         elif any(k in name_lower for k in ['нормативный', 'допустимые']):
             return 'Нормативные слова'
         elif any(k in name_lower for k in ['термины', 'профессионализмы']):

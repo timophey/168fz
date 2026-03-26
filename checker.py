@@ -19,9 +19,13 @@ class LanguageChecker:
         """
         self.dict_manager = DictionaryManager(dictionaries_dir)
 
-    def check_text(self, text: str) -> Dict:
+    def check_text(self, text: str, allowed_words: List[str] = None) -> Dict:
         """
         Полная проверка текста
+
+        Args:
+            text: текст для проверки
+            allowed_words: дополнительный список разрешенных иностранных слов (опционально)
 
         Returns:
             Словарь с результатами проверки, включая all_words
@@ -71,6 +75,11 @@ class LanguageChecker:
         # Загружаем словари для быстрой проверки
         russian_alternatives = self.dict_manager.dictionaries.get('русские_аналоги', {}).get('words', set())
         normative_dict = self.dict_manager.dictionaries.get('нормативный_словарь', {}).get('words', set())
+        allowed_foreign = self.dict_manager.dictionaries.get('allowed_foreign', {}).get('words', set())
+        
+        # Добавляем дополнительные разрешенные слова из запроса
+        if allowed_words:
+            allowed_foreign = allowed_foreign.union(set(w.lower() for w in allowed_words))
         
         # Проверяем каждую группу слов
         for word_lower, group in word_groups.items():
@@ -132,7 +141,12 @@ class LanguageChecker:
                     explanation = 'Слово найдено в словаре русских слов'
                     if word_lower in normative_dict:
                         explanation = 'Слово соответствует нормативному словарю русского языка'
-                # 3. Проверяем иностранные слова с утвержденными русскими аналогами
+                # 3. Проверяем разрешенные иностранные слова (международные стандарты, собственные имена)
+                elif word_lower in allowed_foreign:
+                    status = "allowed"
+                    explanation = 'Слово является разрешенным иностранным термином (международный стандарт/собственное имя)'
+                    # Не добавляем в foreign_words, так как это разрешено
+                # 4. Проверяем иностранные слова с утвержденными русскими аналогами
                 elif word_lower in russian_alternatives:
                     status = "foreign_with_alternative"
                     recommendation = self._suggest_russian_alternative(representative)
@@ -146,7 +160,7 @@ class LanguageChecker:
                         'explanation': explanation
                     })
                     results['summary']['has_foreign'] = True
-                # 4. Проверяем другие иностранные слова (с латинскими буквами)
+                # 5. Проверяем другие иностранные слова (с латинскими буквами)
                 elif has_latin:
                     status = "foreign"
                     recommendation = self._suggest_russian_alternative(representative)

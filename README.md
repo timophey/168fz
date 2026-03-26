@@ -68,7 +68,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 |-------|----------|----------|
 | `GET` | `/` | Веб-интерфейс |
 | `GET` | `/api/v1/health` | Проверка здоровья сервиса |
-| `POST` | `/api/v1/check` | Проверка текста (JSON: {"text": "..."} или {"url": "..."}) |
+| `POST` | `/api/v1/check` | Проверка текста (JSON: {"text": "...", "url": "...", "allowed_words": [...]}) |
 | `POST` | `/api/v1/check/file` | Проверка загруженного файла (multipart/form-data) |
 | `GET` | `/api/v1/dictionaries` | Список словарей |
 | `GET` | `/api/v1/dictionaries/{name}` | Информация о словаре |
@@ -85,6 +85,13 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 curl -X POST "http://localhost:8000/api/v1/check" \
   -H "Content-Type: application/json" \
   -d '{"text": "Наш developer провел meeting"}'
+```
+
+#### Проверка текста с дополнительными разрешенными словами
+```bash
+curl -X POST "http://localhost:8000/api/v1/check" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "New collection available", "allowed_words": ["new", "collection"]}'
 ```
 
 #### Проверка URL
