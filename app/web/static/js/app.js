@@ -14,14 +14,6 @@ function init() {
     });
 }
 
-// Запуск инициализации - если DOM уже загружен, вызываем сразу,
-// иначе ждем события DOMContentLoaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
-
 // ==================== API CALLS ====================
 
 async function apiCall(endpoint, method = 'GET', body = null, isFormData = false) {
@@ -839,3 +831,10 @@ window.downloadReport = downloadReport;
 window.syncAll = syncAll;
 window.loadSyncStatus = loadSyncStatus;
 window.uploadDictionary = uploadDictionary;
+
+// Запуск инициализации (после определения всех функций)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
