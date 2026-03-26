@@ -1,0 +1,27 @@
+{
+  "name": "obscene_github",
+  "official_name": "Список обсценной лексики (GitHub)",
+  "version": "2024",
+  "source": "https://github.com/LTD-Beget/badwords",
+  "institution": "Сообщество",
+  "license": "MIT",
+  "generated_at": "2026-03-26T12:03:36.979028",
+  "word_count": 15,
+  "words": [
+    "нахуй",
+    "говно",
+    "уебан",
+    "хуёво",
+    "blyad",
+    "похуй",
+    "наебениться",
+    "заебись",
+    "пидор",
+    "сука",
+    "мудак",
+    "мат",
+    "хуй",
+    "пиздец",
+    "ебать"
+  ]
+}

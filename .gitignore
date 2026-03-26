@@ -1,0 +1,80 @@
+# ================ Python ================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ================ IDE / Editor ================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ================ Environment ================
+.env
+.env.local
+.env.*.local
+
+# ================ Logs ================
+*.log
+logs/
+server.log
+server2.log
+
+# ================ Test results ================
+# Large test data files (downloaded/generated for testing)
+test_final2.json
+test_polygr_fixed.json
+test_result.json
+test_results.json
+test_result_polygr.json
+
+# Generic patterns
+test_*.json
+test_*.txt
+report.json
+report.csv
+results/
+output/
+
+# ================ Cache ================
+sync/cache/
+.cache/
+
+# ================ Large dictionary files (downloaded during sync) ================
+# These are downloaded from external sources during container build/runtime
+# Keep only small demo dictionaries (under ~1MB), exclude large downloaded ones
+
+# Large dictionaries (exclude from git, download during sync/container build)
+dictionaries/data/hunspell_ru.json
+dictionaries/data/ru_words_github.json
+
+# Note: Other *_github.json files are small (<1MB) and can stay in repo
+
+# ================ Temporary files ================
+temp/
+tmp/
+*.tmp
+*.temp

@@ -1,0 +1,29 @@
+{
+  "name": "русские_аналоги",
+  "version": "1.0",
+  "source": "демо-словарь",
+  "description": "Словарь соответствия иностранных слов и их русских аналогов",
+  "words": [
+    "online",
+    "offline",
+    "download",
+    "upload",
+    "login",
+    "logout",
+    "password",
+    "email",
+    "website",
+    "blog",
+    "chat",
+    "meeting",
+    "deadline",
+    "feedback",
+    "marketing",
+    "manager",
+    "developer",
+    "designer",
+    "startup",
+    "freelance",
+    "remote"
+  ]
+}

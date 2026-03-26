@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  checker:
+    build: .
+    container_name: fz168-checker
+    ports:
+      - "8000:8000"
+    volumes:
+      # Монтируем словари для сохранения между перезапусками
+      - ./dictionaries/data:/app/dictionaries/data
+      # Монтируем кэш синхронизации
+      - ./sync/cache:/app/sync/cache
+      # Монтируем конфиги
+      - ./config:/app/config
+    environment:
+      - DICTIONARIES_DIR=/app/dictionaries/data
+      - HOST=0.0.0.0
+      - PORT=8000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - fz168-network
+
+networks:
+  fz168-network:
+    driver: bridge
