@@ -64,23 +64,18 @@ async def startup_event():
     def sync_in_background():
         try:
             print("Проверка и синхронизация словарей при запуске...")
-            # Проверяем, есть ли уже загруженные словари
-            loaded_dicts = list(dict_manager.list_dictionaries())
+            # Всегда выполняем проверку и синхронизацию официальных словарей
+            # (sync_all с force=False сам проверит, нужны ли обновления)
+            results = synchronizer.sync_all(force=False)
+            success_count = sum(1 for success, _ in results.values() if success)
+            total_count = len(results)
+            print(f"Проверка синхронизации завершена: {success_count}/{total_count} словарей актуальны")
             
-            if not loaded_dicts:
-                # Если словарей нет, выполняем полную синхронизацию
-                print("Словари не найдены. Запускаю автоматическую синхронизацию...")
-                results = synchronizer.sync_all(force=False)
-                success_count = sum(1 for success, _ in results.values() if success)
-                total_count = len(results)
-                print(f"Автоматическая синхронизация завершена: {success_count}/{total_count} словарей успешно загружены")
-                
-                # Перезагружаем словари в менеджере после синхронизации
+            # Если были загружены новые словари, перезагружаем их в менеджер
+            if any(success for success, _ in results.values()):
                 dict_manager.reload_dictionaries()
                 checker.dict_manager.reload_dictionaries()
-                print("Словари успешно загружены в память.")
-            else:
-                print(f"Найдено {len(loaded_dicts)} загруженных словарей. Автоматическая синхронизация не требуется.")
+                print("Новые словари загружены в память.")
         except Exception as e:
             print(f"Ошибка при автоматической синхронизации словарей: {e}")
     
