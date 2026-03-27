@@ -299,12 +299,13 @@ async def get_dictionary_info(dict_name: str):
 
 
 @app.get("/api/v1/dictionaries/{dict_name}/words")
-async def get_dictionary_words(dict_name: str, limit: int = 1000, search: str = None):
+async def get_dictionary_words(dict_name: str, limit: int = 1000, offset: int = 0, search: str = None):
     """
     Получение слов из конкретного словаря
     
     Параметры query:
     - limit: ограничение количества возвращаемых слов (по умолчанию 1000, максимум 10000)
+    - offset: смещение для пагинации (по умолчанию 0)
     - search: опциональный поисковый запрос для фильтрации слов (подстрока)
     """
     try:
@@ -325,14 +326,15 @@ async def get_dictionary_words(dict_name: str, limit: int = 1000, search: str = 
         # Сортируем для удобства
         words.sort()
         
-        # Применяем лимит
+        # Применяем offset и limit
         total_count = len(words)
-        if limit > 0:
-            words = words[:limit]
+        start_idx = min(offset, total_count)
+        end_idx = min(offset + limit, total_count) if limit > 0 else total_count
+        paginated_words = words[start_idx:end_idx]
         
         # Подготавливаем данные с mappings если они есть
         words_data = []
-        for word in words:
+        for word in paginated_words:
             word_entry = {"word": word}
             if word in mappings:
                 word_entry["mapping"] = mappings[word]
@@ -344,7 +346,8 @@ async def get_dictionary_words(dict_name: str, limit: int = 1000, search: str = 
                 "words": words_data,
                 "total": total_count,
                 "returned": len(words_data),
-                "limited": limit > 0 and total_count > limit,
+                "offset": start_idx,
+                "limited": limit > 0 and end_idx < total_count,
                 "searched": search is not None,
                 "has_mappings": len(mappings) > 0
             }

@@ -740,6 +740,10 @@ async function loadDictionariesStatus() {
 let currentDictionaryWords = [];
 let currentDictionaryName = '';
 let currentDictionaryHasMappings = false;
+let currentDictionaryOffset = 0;
+let currentDictionaryLimit = 1000;
+let currentDictionaryTotal = 0;
+let isLoadingMore = false;
 
 /**
  * Открытие модального окна с словами словаря
@@ -756,25 +760,115 @@ async function viewDictionary(dictName) {
         
         modal.show();
         
-        // Загружаем слова словаря (с лимитом по умолчанию 5000 для производительности)
-        const data = await apiCall(`/api/v1/dictionaries/${encodeURIComponent(dictName)}/words?limit=5000`);
+        // Сбрасываем состояние загрузки
+        currentDictionaryOffset = 0;
+        currentDictionaryWords = [];
+        currentDictionaryTotal = 0;
+        isLoadingMore = false;
         
-        currentDictionaryName = dictName;
-        currentDictionaryWords = data.words;
-        currentDictionaryHasMappings = data.has_mappings || false;
-        
-        // Обновляем информацию
-        updateDictionaryModalInfo(data);
-        
-        // Отображаем таблицу
-        renderDictionaryWordsTable(currentDictionaryWords);
+        // Загружаем первую порцию слов
+        await loadMoreDictionaryWords();
         
         // Настраиваем фильтрацию
         setupDictionaryFilter();
         
+        // Настраиваем infinite scroll
+        setupInfiniteScroll();
+        
     } catch (error) {
         console.error('Error loading dictionary:', error);
         showAlert('Ошибка загрузки словаря', 'danger');
+    }
+}
+
+/**
+ * Загрузка следующей порции слов словаря
+ */
+async function loadMoreDictionaryWords(searchQuery = '') {
+    if (isLoadingMore) return;
+    
+    try {
+        isLoadingMore = true;
+        showLoadingIndicator();
+        
+        const limit = 1000;
+        const offset = currentDictionaryOffset;
+        
+        let endpoint = `/api/v1/dictionaries/${encodeURIComponent(currentDictionaryName)}/words?limit=${limit}&offset=${offset}`;
+        if (searchQuery) {
+            endpoint += `&search=${encodeURIComponent(searchQuery)}`;
+        }
+        
+        const data = await apiCall(endpoint);
+        
+        // Если это первая загрузка, сохраняем total и has_mappings
+        if (currentDictionaryOffset === 0) {
+            currentDictionaryTotal = data.total;
+            currentDictionaryHasMappings = data.has_mappings || false;
+        }
+        
+        // Добавляем новые слова к существующим
+        currentDictionaryWords = currentDictionaryWords.concat(data.words);
+        currentDictionaryOffset += data.returned;
+        
+        // Обновляем таблицу
+        renderDictionaryWordsTable(currentDictionaryWords);
+        
+        // Обновляем статистику
+        updateDictionaryModalInfo({
+            total: currentDictionaryTotal,
+            returned: currentDictionaryWords.length,
+            limited: currentDictionaryWords.length < currentDictionaryTotal,
+            searched: searchQuery !== ''
+        });
+        
+        // Если загрузили меньше чем лимит, значит все слова загружены
+        if (data.returned < limit) {
+            hideLoadingIndicator();
+        }
+        
+    } catch (error) {
+        console.error('Error loading more words:', error);
+    } finally {
+        isLoadingMore = false;
+    }
+}
+
+/**
+ * Показ индикатора загрузки "Ещё..."
+ */
+function showLoadingIndicator() {
+    const tbody = document.getElementById('dictionaryWordsTableBody');
+    let loadingRow = document.getElementById('loadingMoreRow');
+    
+    if (!loadingRow) {
+        loadingRow = document.createElement('tr');
+        loadingRow.id = 'loadingMoreRow';
+        loadingRow.innerHTML = `
+            <td colspan="2" class="text-center py-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                <span class="ms-2">Загрузка...</span>
+            </td>
+        `;
+    }
+    
+    // Если колонка с маппингами есть, обновляем colspan
+    if (currentDictionaryHasMappings) {
+        loadingRow.querySelector('td').colSpan = 3;
+    } else {
+        loadingRow.querySelector('td').colSpan = 2;
+    }
+    
+    tbody.appendChild(loadingRow);
+}
+
+/**
+ * Скрытие индикатора загрузки
+ */
+function hideLoadingIndicator() {
+    const loadingRow = document.getElementById('loadingMoreRow');
+    if (loadingRow) {
+        loadingRow.remove();
     }
 }
 
@@ -803,11 +897,17 @@ function updateDictionaryModalInfo(data) {
 }
 
 /**
- * Отрисовка таблицы слов словаря
+ * Отрисовка таблицы слов словаря (добавляет новые строки)
  */
-function renderDictionaryWordsTable(words, showSearchInfo = false) {
+function renderDictionaryWordsTable(words, append = false) {
     const tbody = document.getElementById('dictionaryWordsTableBody');
-    tbody.innerHTML = '';
+    
+    // Если не добавляем, а заменяем - очищаем таблицу
+    if (!append) {
+        tbody.innerHTML = '';
+        // Убираем индикатор загрузки
+        hideLoadingIndicator();
+    }
     
     // Показываем/скрываем колонку с маппингами
     const mappingHeader = document.querySelector('#dictionaryWordsTable th.mapping-column');
@@ -819,20 +919,18 @@ function renderDictionaryWordsTable(words, showSearchInfo = false) {
         }
     }
     
-    // Ограничиваем отображение для производительности
-    const maxDisplay = 2000;
-    const isLimited = words.length > maxDisplay;
-    const wordsToShow = isLimited ? words.slice(0, maxDisplay) : words;
+    // Определяем, с какой строки начинать нумерацию
+    const startIndex = append ? tbody.querySelectorAll('tr:not(#loadingMoreRow)').length : 0;
     
     // Генерируем строки таблицы
     const fragment = document.createDocumentFragment();
-    wordsToShow.forEach((item, index) => {
+    words.forEach((item, index) => {
         const tr = document.createElement('tr');
         const word = typeof item === 'object' ? item.word : item;
         const mapping = typeof item === 'object' ? item.mapping : null;
         
         let html = `
-            <td class="word-index">${index + 1}</td>
+            <td class="word-index">${startIndex + index + 1}</td>
             <td class="word-cell">${escapeHtml(word)}</td>
         `;
         
@@ -844,23 +942,49 @@ function renderDictionaryWordsTable(words, showSearchInfo = false) {
         tr.innerHTML = html;
         fragment.appendChild(tr);
     });
-    tbody.appendChild(fragment);
     
-    // Показываем информацию о поиске или ограничении
-    const paginationDiv = document.getElementById('dictionaryWordsPagination');
-    if (showSearchInfo || isLimited) {
-        let message = '';
-        if (showSearchInfo) {
-            message = `Найдено ${words.length.toLocaleString()} слов по запросу. `;
-        }
-        if (isLimited) {
-            message += `Показано ${maxDisplay.toLocaleString()} из ${words.length.toLocaleString()} слов.`;
-        }
-        paginationDiv.innerHTML = `<i class="fas fa-info-circle"></i> ${message}`;
-        paginationDiv.style.display = 'block';
+    // Вставляем перед строкой загрузки (если она есть)
+    const loadingRow = document.getElementById('loadingMoreRow');
+    if (loadingRow && append) {
+        tbody.insertBefore(fragment, loadingRow);
     } else {
-        paginationDiv.style.display = 'none';
+        tbody.appendChild(fragment);
     }
+    
+    // Скрываем индикатор загрузки если все загружено
+    if (words.length === 0 && append) {
+        hideLoadingIndicator();
+    }
+}
+
+/**
+ * Настройка infinite scroll (загрузка при прокрутке до конца)
+ */
+function setupInfiniteScroll() {
+    const modalBody = document.querySelector('#dictionaryWordsModal .modal-body');
+    const tableResponsive = document.querySelector('#dictionaryWordsModal .table-responsive');
+    
+    if (!tableResponsive) return;
+    
+    let scrollTimeout;
+    tableResponsive.addEventListener('scroll', () => {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+            // Проверяем, достигли ли мы конца
+            const { scrollTop, scrollHeight, clientHeight } = tableResponsive;
+            const distanceToBottom = scrollHeight - (scrollTop + clientHeight);
+            
+            // Если осталось меньше 100px до конца, загружаем еще
+            if (distanceToBottom < 100 && !isLoadingMore) {
+                // Получаем текущий поисковый запрос
+                const filterInput = document.getElementById('dictionaryWordFilter');
+                const searchQuery = filterInput ? filterInput.value.trim() : '';
+                
+                // Загружаем следующую порцию
+                loadMoreDictionaryWords(searchQuery);
+            }
+        }, 100); // Debounce скролла
+    });
 }
 
 /**
@@ -905,16 +1029,17 @@ function setupDictionaryFilter() {
     // Обработчик ввода
     newFilterInput.addEventListener('input', function() {
         const query = this.value.trim();
+        currentSearchQuery = query;
         
-        // Показываем/скрываем кнопку очистки
+        // Показываем/скрывать кнопку очистки
         updateClearButton();
         
         // Если запрос пустой, сразу скрываем спиннер
         if (query.length === 0) {
             clearTimeout(debounceTimer);
             setLoading(false);
-            // Загружаем начальный набор слов
-            performSearch('');
+            // Сбрасываем и загружаем начальный набор слов
+            resetAndLoadWords();
             return;
         }
         
@@ -928,12 +1053,24 @@ function setupDictionaryFilter() {
     if (clearBtn) {
         clearBtn.addEventListener('click', function() {
             newFilterInput.value = '';
+            currentSearchQuery = '';
             setLoading(false);
             updateClearButton();
-            // Загружаем начальный набор слов
-            performSearch('');
+            // Сбрасываем и загружаем начальный набор слов
+            resetAndLoadWords();
             newFilterInput.focus();
         });
+    }
+    
+    // Функция сброса и загрузки начальных слов
+    async function resetAndLoadWords() {
+        // Сбрасываем состояние
+        currentDictionaryOffset = 0;
+        currentDictionaryWords = [];
+        currentDictionaryTotal = 0;
+        
+        // Загружаем первую порцию
+        await loadMoreDictionaryWords('');
     }
     
     // Функция выполнения поиска
@@ -942,16 +1079,12 @@ function setupDictionaryFilter() {
         
         setLoading(true);
         try {
-            let endpoint;
-            if (query.length === 0) {
-                endpoint = `/api/v1/dictionaries/${encodeURIComponent(currentDictionaryName)}/words?limit=1000`;
-            } else {
-                endpoint = `/api/v1/dictionaries/${encodeURIComponent(currentDictionaryName)}/words?limit=200&search=${encodeURIComponent(query)}`;
-            }
+            // Сбрасываем состояние для нового поиска
+            currentDictionaryOffset = 0;
+            currentDictionaryWords = [];
+            currentDictionaryTotal = 0;
             
-            const data = await apiCall(endpoint);
-            currentDictionaryWords = data.words;
-            renderDictionaryWordsTable(currentDictionaryWords, data.searched);
+            await loadMoreDictionaryWords(query);
         } catch (error) {
             console.error('Search error:', error);
         } finally {
