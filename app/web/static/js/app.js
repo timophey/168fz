@@ -707,10 +707,20 @@ async function loadDictionariesStatus() {
         dictionaries.forEach(dict => {
             html += `
                 <div class="col-md-6">
-                    <div class="dict-item synced">
-                        <div class="dict-name">${escapeHtml(dict.name)}</div>
-                        <div class="dict-meta">
-                            ${dict.words_count.toLocaleString()} слов | версия ${dict.version || 'N/A'}
+                    <div class="dict-item ${dict.status}">
+                        <div class="dict-header">
+                            <div class="dict-info">
+                                <div class="dict-name">${escapeHtml(dict.name)}</div>
+                                <div class="dict-meta">
+                                    ${dict.words_count.toLocaleString()} слов | версия ${dict.version || 'N/A'}
+                                </div>
+                            </div>
+                            <div class="dict-actions">
+                                <button class="btn btn-sm btn-outline-primary btn-view" 
+                                        onclick="viewDictionary('${escapeHtml(dict.name)}')">
+                                    <i class="fas fa-eye"></i> Просмотреть
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -723,6 +733,237 @@ async function loadDictionariesStatus() {
         document.getElementById('dictionariesStatus').innerHTML = 
             '<div class="alert alert-danger">Ошибка загрузки словарей</div>';
     }
+}
+
+// ==================== DICTIONARY VIEW ====================
+
+let currentDictionaryWords = [];
+let currentDictionaryName = '';
+let currentDictionaryHasMappings = false;
+
+/**
+ * Открытие модального окна с словами словаря
+ */
+async function viewDictionary(dictName) {
+    try {
+        // Показываем модальное окно с индикатором загрузки
+        const modal = new bootstrap.Modal(document.getElementById('dictionaryWordsModal'));
+        document.getElementById('dictionaryModalTitle').textContent = `Словарь: ${dictName}`;
+        document.getElementById('dictionaryModalInfo').innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Загрузка слов...</div>';
+        document.getElementById('dictionaryWordsTableBody').innerHTML = '';
+        document.getElementById('dictionaryStats').innerHTML = '';
+        document.getElementById('dictionaryWordsPagination').style.display = 'none';
+        
+        modal.show();
+        
+        // Загружаем слова словаря (с лимитом по умолчанию 5000 для производительности)
+        const data = await apiCall(`/api/v1/dictionaries/${encodeURIComponent(dictName)}/words?limit=5000`);
+        
+        currentDictionaryName = dictName;
+        currentDictionaryWords = data.words;
+        currentDictionaryHasMappings = data.has_mappings || false;
+        
+        // Обновляем информацию
+        updateDictionaryModalInfo(data);
+        
+        // Отображаем таблицу
+        renderDictionaryWordsTable(currentDictionaryWords);
+        
+        // Настраиваем фильтрацию
+        setupDictionaryFilter();
+        
+    } catch (error) {
+        console.error('Error loading dictionary:', error);
+        showAlert('Ошибка загрузки словаря', 'danger');
+    }
+}
+
+/**
+ * Обновление информации о словаре в модальном окне
+ */
+function updateDictionaryModalInfo(data) {
+    const infoDiv = document.getElementById('dictionaryModalInfo');
+    const statsDiv = document.getElementById('dictionaryStats');
+    
+    infoDiv.innerHTML = `
+        <strong>${currentDictionaryName}</strong>
+        ${data.limited ? '<span class="badge bg-warning ms-2">Показаны первые ' + data.returned + ' из ' + data.total + '</span>' : ''}
+    `;
+    
+    statsDiv.innerHTML = `
+        <div class="dictionary-stat-item">
+            <span class="dictionary-stat-value">${data.total.toLocaleString()}</span>
+            <span class="dictionary-stat-label">Всего слов</span>
+        </div>
+        <div class="dictionary-stat-item">
+            <span class="dictionary-stat-value">${data.returned.toLocaleString()}</span>
+            <span class="dictionary-stat-label">Показано</span>
+        </div>
+    `;
+}
+
+/**
+ * Отрисовка таблицы слов словаря
+ */
+function renderDictionaryWordsTable(words, showSearchInfo = false) {
+    const tbody = document.getElementById('dictionaryWordsTableBody');
+    tbody.innerHTML = '';
+    
+    // Показываем/скрываем колонку с маппингами
+    const mappingHeader = document.querySelector('#dictionaryWordsTable th.mapping-column');
+    if (mappingHeader) {
+        if (currentDictionaryHasMappings) {
+            mappingHeader.classList.remove('d-none');
+        } else {
+            mappingHeader.classList.add('d-none');
+        }
+    }
+    
+    // Ограничиваем отображение для производительности
+    const maxDisplay = 2000;
+    const isLimited = words.length > maxDisplay;
+    const wordsToShow = isLimited ? words.slice(0, maxDisplay) : words;
+    
+    // Генерируем строки таблицы
+    const fragment = document.createDocumentFragment();
+    wordsToShow.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        const word = typeof item === 'object' ? item.word : item;
+        const mapping = typeof item === 'object' ? item.mapping : null;
+        
+        let html = `
+            <td class="word-index">${index + 1}</td>
+            <td class="word-cell">${escapeHtml(word)}</td>
+        `;
+        
+        if (currentDictionaryHasMappings) {
+            const mappingDisplay = mapping ? mapping : '-';
+            html += `<td class="mapping-cell">${escapeHtml(mappingDisplay)}</td>`;
+        }
+        
+        tr.innerHTML = html;
+        fragment.appendChild(tr);
+    });
+    tbody.appendChild(fragment);
+    
+    // Показываем информацию о поиске или ограничении
+    const paginationDiv = document.getElementById('dictionaryWordsPagination');
+    if (showSearchInfo || isLimited) {
+        let message = '';
+        if (showSearchInfo) {
+            message = `Найдено ${words.length.toLocaleString()} слов по запросу. `;
+        }
+        if (isLimited) {
+            message += `Показано ${maxDisplay.toLocaleString()} из ${words.length.toLocaleString()} слов.`;
+        }
+        paginationDiv.innerHTML = `<i class="fas fa-info-circle"></i> ${message}`;
+        paginationDiv.style.display = 'block';
+    } else {
+        paginationDiv.style.display = 'none';
+    }
+}
+
+/**
+ * Настройка фильтрации слов в таблице словаря (server-side search)
+ */
+function setupDictionaryFilter() {
+    const filterInput = document.getElementById('dictionaryWordFilter');
+    const clearBtn = document.getElementById('clearSearchBtn');
+    const spinner = document.getElementById('searchSpinner');
+    const clearIcon = document.getElementById('clearIcon');
+    
+    let debounceTimer;
+    let isLoading = false;
+    
+    // Удаляем старый слушатель если был
+    const newFilterInput = filterInput.cloneNode(true);
+    filterInput.parentNode.replaceChild(newFilterInput, filterInput);
+    
+    // Функция для обновления состояния кнопки очистки
+    function updateClearButton() {
+        const hasText = newFilterInput.value.trim().length > 0;
+        if (clearBtn) {
+            clearBtn.style.display = hasText || isLoading ? 'inline-flex' : 'none';
+        }
+    }
+    
+    // Функция для установки состояния загрузки
+    function setLoading(loading) {
+        isLoading = loading;
+        if (spinner && clearIcon) {
+            if (loading) {
+                spinner.classList.remove('d-none');
+                clearIcon.classList.add('d-none');
+            } else {
+                spinner.classList.add('d-none');
+                clearIcon.classList.remove('d-none');
+            }
+        }
+        updateClearButton();
+    }
+    
+    // Обработчик ввода
+    newFilterInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        
+        // Показываем/скрываем кнопку очистки
+        updateClearButton();
+        
+        // Если запрос пустой, сразу скрываем спиннер
+        if (query.length === 0) {
+            clearTimeout(debounceTimer);
+            setLoading(false);
+            // Загружаем начальный набор слов
+            performSearch('');
+            return;
+        }
+        
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            performSearch(query);
+        }, 300);
+    });
+    
+    // Обработчик кнопки очистки
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            newFilterInput.value = '';
+            setLoading(false);
+            updateClearButton();
+            // Загружаем начальный набор слов
+            performSearch('');
+            newFilterInput.focus();
+        });
+    }
+    
+    // Функция выполнения поиска
+    async function performSearch(query) {
+        if (isLoading) return;
+        
+        setLoading(true);
+        try {
+            let endpoint;
+            if (query.length === 0) {
+                endpoint = `/api/v1/dictionaries/${encodeURIComponent(currentDictionaryName)}/words?limit=1000`;
+            } else {
+                endpoint = `/api/v1/dictionaries/${encodeURIComponent(currentDictionaryName)}/words?limit=200&search=${encodeURIComponent(query)}`;
+            }
+            
+            const data = await apiCall(endpoint);
+            currentDictionaryWords = data.words;
+            renderDictionaryWordsTable(currentDictionaryWords, data.searched);
+        } catch (error) {
+            console.error('Search error:', error);
+        } finally {
+            setLoading(false);
+        }
+    }
+    
+    // Автоматически фокусируемся на поле фильтра для удобства
+    setTimeout(() => {
+        newFilterInput.focus();
+        newFilterInput.select();
+    }, 300);
 }
 
 // ==================== SOURCES ====================
@@ -890,6 +1131,7 @@ window.downloadReport = downloadReport;
 window.loadAllowedForeign = loadAllowedForeign;
 window.resetAllowedForeign = resetAllowedForeign;
 window.getAllowedWords = getAllowedWords;
+window.viewDictionary = viewDictionary;
 
 // Запуск инициализации (после определения всех функций)
 if (document.readyState === 'loading') {

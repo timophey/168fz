@@ -62,6 +62,33 @@ body {
     color: #6c757d;
 }
 
+.dict-item {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.dict-item .dict-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.dict-item .dict-info {
+    flex: 1;
+}
+
+.dict-item .dict-actions {
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+
+.dict-item .btn-view {
+    font-size: 0.85rem;
+    padding: 4px 12px;
+}
+
 .sync-item {
     padding: 6px 10px;
     margin: 3px 0;
@@ -151,4 +178,91 @@ body {
         margin-left: auto !important;
         margin-top: 10px;
     }
+}
+
+/* Dictionary Words Modal */
+#dictionaryWordsModal .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+#dictionaryWordsModal .table-responsive {
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+#dictionaryWordsModal .table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #f8f9fa;
+    z-index: 10;
+}
+
+#dictionaryWordsModal .word-index {
+    width: 60px;
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+#dictionaryWordsModal .word-cell {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-weight: 500;
+}
+
+#dictionaryWordsModal .mapping-column {
+    width: 40%;
+}
+
+#dictionaryWordsModal .mapping-cell {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    color: #0d6efd;
+}
+
+#dictionaryWordsModal .modal-dictionary-info {
+    background-color: #e7f1ff;
+    border-left: 4px solid var(--info-color);
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+#dictionaryWordsModal .dictionary-stats {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+#dictionaryWordsModal .dictionary-stat-item {
+    display: flex;
+    flex-direction: column;
+}
+
+#dictionaryWordsModal .dictionary-stat-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+#dictionaryWordsModal .dictionary-stat-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+#dictionaryWordsModal .search-box {
+    margin-bottom: 15px;
+}
+
+#dictionaryWordsModal .search-box .input-group {
+    max-width: 400px;
+}
+
+#dictionaryWordsModal .search-box .btn {
+    padding: 0.375rem 0.75rem;
+}
+
+#dictionaryWordsModal .search-box .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.2em;
 }

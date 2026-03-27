@@ -198,7 +198,7 @@
         </div>
     </div>
 
-    <!-- Модальное окно для деталей -->
+    <!-- Модальное окно для деталей проверки -->
     <div class="modal fade" id="detailsModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -207,6 +207,62 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="modalBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для просмотра слов словаря -->
+    <div class="modal fade" id="dictionaryWordsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-book-open"></i> <span id="dictionaryModalTitle">Словарь</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="dictionaryModalInfo" class="modal-dictionary-info">
+                        <!-- Информация о словаре -->
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="dictionary-stats" id="dictionaryStats">
+                            <!-- Статистика -->
+                        </div>
+                        <div class="search-box">
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control" id="dictionaryWordFilter"
+                                       placeholder="Поиск слов...">
+                                <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" style="display: none;">
+                                    <span class="spinner-border spinner-border-sm d-none" id="searchSpinner"></span>
+                                    <i class="fas fa-times d-none" id="clearIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0" id="dictionaryWordsTable">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th class="word-index">#</th>
+                                    <th>Слово</th>
+                                    <th class="mapping-column d-none">Русский аналог</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dictionaryWordsTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="dictionaryWordsPagination" class="mt-2 text-muted small" style="display: none;">
+                        <!-- Пагинация если слова обрезаны -->
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>

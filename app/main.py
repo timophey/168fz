@@ -298,6 +298,63 @@ async def get_dictionary_info(dict_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/v1/dictionaries/{dict_name}/words")
+async def get_dictionary_words(dict_name: str, limit: int = 1000, search: str = None):
+    """
+    Получение слов из конкретного словаря
+    
+    Параметры query:
+    - limit: ограничение количества возвращаемых слов (по умолчанию 1000, максимум 10000)
+    - search: опциональный поисковый запрос для фильтрации слов (подстрока)
+    """
+    try:
+        dict_data = dict_manager.get_dictionary_info(dict_name)
+        if not dict_data:
+            raise HTTPException(status_code=404, detail=f"Словарь '{dict_name}' не найден")
+        
+        # Получаем все слова из словаря
+        full_dict = dict_manager.dictionaries.get(dict_name, {})
+        words = list(full_dict.get('words', set()))
+        mappings = full_dict.get('mappings', {})
+        
+        # Фильтруем если есть поисковый запрос
+        if search:
+            search_lower = search.lower()
+            words = [w for w in words if search_lower in w.lower()]
+        
+        # Сортируем для удобства
+        words.sort()
+        
+        # Применяем лимит
+        total_count = len(words)
+        if limit > 0:
+            words = words[:limit]
+        
+        # Подготавливаем данные с mappings если они есть
+        words_data = []
+        for word in words:
+            word_entry = {"word": word}
+            if word in mappings:
+                word_entry["mapping"] = mappings[word]
+            words_data.append(word_entry)
+        
+        return JSONResponse({
+            "success": True,
+            "data": {
+                "words": words_data,
+                "total": total_count,
+                "returned": len(words_data),
+                "limited": limit > 0 and total_count > limit,
+                "searched": search is not None,
+                "has_mappings": len(mappings) > 0
+            }
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/v1/dictionaries/load")
 async def load_dictionary(request: Request, admin_auth: bool = Depends(verify_admin_key)):
     """
