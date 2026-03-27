@@ -145,6 +145,7 @@ async def check_text(request: Request):
     - text: прямой текст для проверки
     - url: URL страницы для извлечения и проверки
     - allowed_words: (опционально) список дополнительных разрешенных иностранных слов
+    - dictionaries: (опционально) список имен словарей для проверки (если не указано, проверяет по всем)
     
     Returns:
         Детальный отчет со всеми словами текста
@@ -154,6 +155,7 @@ async def check_text(request: Request):
         text = data.get('text', '').strip()
         url = data.get('url', '').strip()
         allowed_words = data.get('allowed_words', [])
+        dictionaries = data.get('dictionaries', None)
         source_info = None
         
         if not text and not url:
@@ -173,7 +175,7 @@ async def check_text(request: Request):
                 raise HTTPException(status_code=400, detail="Не удалось извлечь текст из URL")
         
         # Проверка текста
-        results = checker.check_text(text, allowed_words=allowed_words)
+        results = checker.check_text(text, allowed_words=allowed_words, dictionary_names=dictionaries)
         
         # Добавляем информацию об источнике
         if source_info:
@@ -194,7 +196,8 @@ async def check_text(request: Request):
 @app.post("/api/v1/check/file")
 async def check_file(
     file: UploadFile = File(...),
-    allowed_words: Optional[str] = Form(None)
+    allowed_words: Optional[str] = Form(None),
+    dictionaries: Optional[str] = Form(None)
 ):
     """
     Проверка текста из загруженного файла
@@ -240,8 +243,17 @@ async def check_file(
                     # Если не валидный JSON, пробуем как строку с разделителями
                     allowed_words_list = [w.strip() for w in allowed_words.replace(',', ' ').split() if w.strip()]
             
-            # Проверяем текст с учетом разрешенных слов
-            results = checker.check_text(text, allowed_words=allowed_words_list)
+            # Парсим dictionaries если передано
+            dictionaries_list = None
+            if dictionaries:
+                try:
+                    dictionaries_list = json.loads(dictionaries)
+                except json.JSONDecodeError:
+                    # Если не валидный JSON, пробуем как строку с разделителями
+                    dictionaries_list = [w.strip() for w in dictionaries.replace(',', ' ').split() if w.strip()]
+            
+            # Проверяем текст с учетом разрешенных слов и выбранных словарей
+            results = checker.check_text(text, allowed_words=allowed_words_list, dictionary_names=dictionaries_list)
             
             # Добавляем информацию о файле
             results['source_info'] = {

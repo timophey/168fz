@@ -136,9 +136,13 @@ class DictionaryManager:
         # 3. Используем автоматическую классификацию по названию
         return self._categorize_dictionary(name)
 
-    def check_word(self, word: str) -> Dict[str, List[str]]:
+    def check_word(self, word: str, dictionary_names: List[str] = None) -> Dict[str, List[str]]:
         """
-        Проверка слова по всем словарям
+        Проверка слова по указанным словарям (или всем по умолчанию)
+
+        Args:
+            word: слово для проверки
+            dictionary_names: список имен словарей для проверки (None = все словари)
 
         Returns:
             Словарь с результатами: {'dictionary_name': [matched_words]}
@@ -146,7 +150,13 @@ class DictionaryManager:
         word_lower = word.lower().strip()
         results = {}
 
-        for dict_name, dict_data in self.dictionaries.items():
+        # Определяем, какие словари проверять
+        dictionaries_to_check = self.dictionaries
+        if dictionary_names:
+            # Фильтруем только указанные словари
+            dictionaries_to_check = {k: v for k, v in self.dictionaries.items() if k in dictionary_names}
+
+        for dict_name, dict_data in dictionaries_to_check.items():
             if word_lower in dict_data['words']:
                 results[dict_name] = [word]
 

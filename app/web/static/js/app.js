@@ -2,6 +2,8 @@
 let currentReport = null;
 let reportFormat = 'table';
 let allowedForeignWords = []; // Текущий список разрешенных иностранных слов
+let allDictionaries = []; // Список всех доступных словарей
+let selectedDictionaries = []; // Выбранные словари для проверки
 
 // Инициализация при загрузке страницы
 function init() {
@@ -9,6 +11,7 @@ function init() {
     loadSources();
     loadAllowedForeignFromLocalStorage();
     loadAllowedForeign();
+    // loadDictionarySelection() удален - логика перенесена в loadDictionariesStatus()
     
     // Слушатель изменения формата отчета
     document.getElementById('reportFormat').addEventListener('change', function(e) {
@@ -74,6 +77,7 @@ async function checkText() {
     try {
         let data;
         const allowedWords = getAllowedWords(); // Получаем разрешенные слова
+        const dictionariesToUse = selectedDictionaries.length > 0 ? selectedDictionaries : null;
         
         if (tabId === '#text-panel') {
             // Проверка текста
@@ -84,7 +88,11 @@ async function checkText() {
                 return;
             }
             
-            data = await apiCall('/api/v1/check', 'POST', { text, allowed_words: allowedWords });
+            data = await apiCall('/api/v1/check', 'POST', { 
+                text, 
+                allowed_words: allowedWords,
+                dictionaries: dictionariesToUse 
+            });
             
         } else if (tabId === '#url-panel') {
             // Проверка по URL
@@ -101,7 +109,11 @@ async function checkText() {
                 fullUrl = 'https://' + url;
             }
             
-            data = await apiCall('/api/v1/check', 'POST', { url: fullUrl, allowed_words: allowedWords });
+            data = await apiCall('/api/v1/check', 'POST', { 
+                url: fullUrl, 
+                allowed_words: allowedWords,
+                dictionaries: dictionariesToUse 
+            });
             
         } else if (tabId === '#file-panel') {
             // Проверка файла
@@ -115,10 +127,11 @@ async function checkText() {
             const file = fileInput.files[0];
             const formData = new FormData();
             formData.append('file', file);
-            // Для файлов тоже добавляем allowed_words в JSON части
+            // Для файлов добавляем allowed_words и dictionaries
             formData.append('allowed_words', JSON.stringify(allowedWords));
+            formData.append('dictionaries', JSON.stringify(dictionariesToUse));
             
-            data = await apiCall('/api/v1/check/file', 'POST', formData, true);
+            data = await apiCall('/api/v1/check.file', 'POST', formData, true);
         }
         
         currentReport = data;
@@ -732,12 +745,29 @@ function generateTextReport(data) {
 async function loadDictionariesStatus() {
     try {
         const dictionaries = await apiCall('/api/v1/dictionaries');
+        // Сохраняем глобально для использования в переключателях
+        allDictionaries = dictionaries;
+        
+        // Загружаем сохраненный выбор из localStorage
+        loadSelectedDictionaries();
+        
         const container = document.getElementById('dictionariesStatus');
         
         if (dictionaries.length === 0) {
             container.innerHTML = '<div class="alert alert-warning">Словари не загружены</div>';
             return;
         }
+        
+        // Header with controls
+        let html = `
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-sm btn-outline-primary" onclick="selectAllDictionaries()">Выбрать все</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="deselectAllDictionaries()">Снять все</button>
+                <div class="ms-auto">
+                    <span class="badge bg-info" id="selectedDictionariesCount">${selectedDictionaries.length} выбрано</span>
+                </div>
+            </div>
+        `;
         
         // Group dictionaries by category
         const categories = {};
@@ -755,7 +785,7 @@ async function loadDictionariesStatus() {
         });
         
         // Render category cards using getCategoryColor and getCategoryIcon
-        let html = '<div class="row">';
+        html += '<div class="row">';
         Object.values(categories).forEach(category => {
             const color = getCategoryColor(category.name);
             const icon = getCategoryIcon(category.name);
@@ -782,19 +812,34 @@ async function loadDictionariesStatus() {
             
             category.dictionaries.forEach(dict => {
                 const statusClass = dict.status === 'synced' ? 'synced' : 'local';
+                const isChecked = selectedDictionaries.includes(dict.name) ? 'checked' : '';
                 const statusBadge = dict.status === 'synced' 
                     ? '<span class="badge bg-success">Актуален</span>'
                     : '<span class="badge bg-warning text-dark">Локальный</span>';
                 
                 html += `
                     <li class="${statusClass}">
-                        <span class="dict-name">${escapeHtml(dict.name)}</span>
-                        <div class="dict-words-and-status" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                            <span class="dict-words">${dict.words_count ? dict.words_count.toLocaleString() : 'N/A'} слов</span>
-                            ${statusBadge}
-                            <button class="btn btn-sm btn-outline-primary dict-actions" onclick="viewDictionary('${escapeHtml(dict.name)}')">
-                                <i class="fas fa-eye"></i> Просмотреть
-                            </button>
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2 flex-grow-1">
+                                <div class="form-check form-switch" style="margin: 0;">
+                                    <input class="form-check-input" type="checkbox" 
+                                           id="dict-${dict.name}" 
+                                           data-dict-name="${escapeHtml(dict.name)}"
+                                           ${isChecked}
+                                           onchange="onDictionaryToggle('${escapeHtml(dict.name)}')">
+                                </div>
+                                <div>
+                                    <div class="dict-name fw-bold">${escapeHtml(dict.name)}</div>
+                                    <div class="dict-words small text-muted">${dict.words_count ? dict.words_count.toLocaleString() : 'N/A'} слов</div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                ${statusBadge}
+                                <button class="badge bg-primary text-white" style="cursor: pointer; padding: 4px 8px; font-size: 0.75rem; border: none; text-decoration: none;" 
+                                        onclick="viewDictionary('${escapeHtml(dict.name)}')">
+                                    <i class="fas fa-eye"></i> Просмотреть
+                                </button>
+                            </div>
                         </div>
                     </li>
                 `;
@@ -813,6 +858,108 @@ async function loadDictionariesStatus() {
     } catch (error) {
         document.getElementById('dictionariesStatus').innerHTML = 
             '<div class="alert alert-danger">Ошибка загрузки словарей</div>';
+    }
+}
+
+// ==================== DICTIONARY SELECTION ====================
+
+/**
+ * Обработчик изменения переключателя словаря
+ */
+function onDictionaryToggle(dictName) {
+    const checkbox = document.getElementById(`dict-${dictName}`);
+    
+    if (checkbox.checked) {
+        // Добавляем в выбранные
+        if (!selectedDictionaries.includes(dictName)) {
+            selectedDictionaries.push(dictName);
+        }
+    } else {
+        // Удаляем из выбранных
+        selectedDictionaries = selectedDictionaries.filter(name => name !== dictName);
+    }
+    
+    // Сохраняем в localStorage
+    saveSelectedDictionaries();
+    
+    // Обновляем счетчик
+    updateSelectedDictionariesCount();
+}
+
+/**
+ * Выбрать все словари
+ */
+function selectAllDictionaries() {
+    selectedDictionaries = allDictionaries.map(dict => dict.name);
+    saveSelectedDictionaries();
+    updateAllDictionaryCheckboxes();
+    updateSelectedDictionariesCount();
+}
+
+/**
+ * Снять все выделения
+ */
+function deselectAllDictionaries() {
+    selectedDictionaries = [];
+    saveSelectedDictionaries();
+    updateAllDictionaryCheckboxes();
+    updateSelectedDictionariesCount();
+}
+
+/**
+ * Обновить состояние всех чекбоксов словарей
+ */
+function updateAllDictionaryCheckboxes() {
+    // Находим все чекбоксы словарей в списке
+    const checkboxes = document.querySelectorAll('.dictionary-list input[type="checkbox"][data-dict-name]');
+    checkboxes.forEach(checkbox => {
+        const dictName = checkbox.getAttribute('data-dict-name');
+        checkbox.checked = selectedDictionaries.includes(dictName);
+    });
+}
+
+/**
+ * Сохранение выбранных словарей в localStorage
+ */
+function saveSelectedDictionaries() {
+    try {
+        localStorage.setItem('selectedDictionaries', JSON.stringify(selectedDictionaries));
+    } catch (e) {
+        console.warn('Could not save to localStorage:', e);
+    }
+}
+
+/**
+ * Загрузка выбранных словарей из localStorage
+ */
+function loadSelectedDictionaries() {
+    try {
+        const saved = localStorage.getItem('selectedDictionaries');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) {
+                // Фильтруем, чтобы оставить только существующие словари
+                const existingDictNames = allDictionaries.map(d => d.name);
+                selectedDictionaries = parsed.filter(name => existingDictNames.includes(name));
+            }
+        }
+    } catch (e) {
+        console.warn('Could not load from localStorage:', e);
+        selectedDictionaries = [];
+    }
+}
+
+/**
+ * Обновление счетчика выбранных словарей
+ */
+function updateSelectedDictionariesCount() {
+    const badge = document.getElementById('selectedDictionariesCount');
+    if (badge) {
+        const count = selectedDictionaries.length;
+        badge.textContent = `${count} выбрано`;
+        if (count === 0) {
+            badge.textContent = 'Все словари';
+        }
     }
 }
 

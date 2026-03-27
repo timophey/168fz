@@ -2,6 +2,7 @@
 Модуль проверки текста на соответствие закону № 168-ФЗ
 """
 
+import os
 import re
 from typing import Dict, List, Tuple
 from dictionaries.manager import DictionaryManager
@@ -19,13 +20,14 @@ class LanguageChecker:
         """
         self.dict_manager = DictionaryManager(dictionaries_dir)
 
-    def check_text(self, text: str, allowed_words: List[str] = None) -> Dict:
+    def check_text(self, text: str, allowed_words: List[str] = None, dictionary_names: List[str] = None) -> Dict:
         """
         Полная проверка текста
 
         Args:
             text: текст для проверки
             allowed_words: дополнительный список разрешенных иностранных слов (опционально)
+            dictionary_names: список имен словарей для проверки (None = все словари)
 
         Returns:
             Словарь с результатами проверки, включая all_words
@@ -37,7 +39,7 @@ class LanguageChecker:
                 'total_words': 0,
                 'unique_words': 0,
             },
-            'dictionaries_used': self.dict_manager.list_dictionaries(),
+            'dictionaries_used': [],  # Будет заполнено ниже
             'checks': {
                 'prohibited_words': [],
                 'foreign_words': [],
@@ -72,10 +74,25 @@ class LanguageChecker:
                 word_groups[word_lower]["count"] += 1
                 word_groups[word_lower]["variations"].add(word)
 
-        # Загружаем словари для быстрой проверки
-        russian_alternatives = self.dict_manager.dictionaries.get('русские_аналоги', {}).get('words', set())
-        normative_dict = self.dict_manager.dictionaries.get('нормативный_словарь', {}).get('words', set())
-        allowed_foreign = self.dict_manager.dictionaries.get('allowed_foreign', {}).get('words', set())
+        # Загружаем словари для быстрой проверки (только если они в выбранном списке)
+        russian_alternatives = set()
+        normative_dict = set()
+        allowed_foreign = set()
+
+        # Определяем, какие словари доступны
+        if dictionary_names is None or 'русские_аналоги' in dictionary_names:
+            russian_alternatives = self.dict_manager.dictionaries.get('русские_аналоги', {}).get('words', set())
+        if dictionary_names is None or 'нормативный_словарь' in dictionary_names:
+            normative_dict = self.dict_manager.dictionaries.get('нормативный_словарь', {}).get('words', set())
+        if dictionary_names is None or 'allowed_foreign' in dictionary_names:
+            allowed_foreign = self.dict_manager.dictionaries.get('allowed_foreign', {}).get('words', set())
+
+        # Формируем список использованных словарей для отчета
+        all_dicts_info = self.dict_manager.list_dictionaries()
+        if dictionary_names is None:
+            results['dictionaries_used'] = all_dicts_info
+        else:
+            results['dictionaries_used'] = [d for d in all_dicts_info if d['name'] in dictionary_names]
         
         # Добавляем дополнительные разрешенные слова из запроса
         user_allowed_words = set(w.lower() for w in allowed_words) if allowed_words else set()
@@ -86,7 +103,7 @@ class LanguageChecker:
             representative = group["representative"]
             count = group["count"]
             variations = group["variations"]
-            dict_results = self.dict_manager.check_word(word_lower)
+            dict_results = self.dict_manager.check_word(word_lower, dictionary_names)
             
             # Определяем статус и заполняем checks
             status = "ok"
@@ -242,12 +259,13 @@ class LanguageChecker:
         """Предложение русского аналога"""
         word_lower = foreign_word.lower()
 
-        # Проверяем словарь аналогов
-        alternatives = self.dict_manager.dictionaries.get('русские_аналоги', {}).get('words', set())
-        if word_lower in alternatives:
-            return "Используйте утвержденный русский аналог"
+        # 1. Проверяем словарь аналогов (маппинги)
+        rus_analogs = self.dict_manager.dictionaries.get('русские_аналоги', {})
+        mappings = rus_analogs.get('mappings', {})
+        if word_lower in mappings:
+            return mappings[word_lower]
 
-        # Простые эвристики для частых слов
+        # 2. Простые эвристики для частых слов (fallback)
         common_foreign = {
             'online': 'в сети, онлайн',
             'offline': 'офлайн, автономно',
@@ -282,11 +300,120 @@ class LanguageChecker:
             'autumn': 'осень',
             'new': 'новый',
             'old': 'старый',
-            'sale': 'распродажа, продажа',
-            'winter': 'зима',
+            'client': 'клиент',
+            'server': 'сервер',
+            'cloud': 'облако',
+            'data': 'данные',
+            'info': 'информация',
+            'system': 'система',
+            'network': 'сеть',
+            'web': 'веб',
+            'app': 'приложение',
+            'tool': 'инструмент',
+            'script': 'скрипт',
+            'code': 'код',
+            'bug': 'ошибка',
+            'fix': 'исправление',
+            'patch': 'заплатка',
+            'release': 'релиз',
+            'version': 'версия',
+            'update': 'обновление',
+            'install': 'установить',
+            'uninstall': 'удалить',
+            'run': 'запустить',
+            'execute': 'выполнить',
+            'process': 'процесс',
+            'thread': 'поток',
+            'memory': 'память',
+            'disk': 'диск',
+            'file': 'файл',
+            'folder': 'папка',
+            'directory': 'каталог',
+            'interface': 'интерфейс',
+            'ui': 'пользовательский интерфейс',
+            'ux': 'пользовательский опыт',
+            'frontend': 'фронтенд',
+            'backend': 'бэкенд',
+            'fullstack': 'фулстек',
+            'database': 'база данных',
+            'db': 'база данных',
+            'sql': 'SQL',
+            'nosql': 'NoSQL',
+            'api': 'API',
+            'rest': 'REST',
+            'json': 'JSON',
+            'xml': 'XML',
+            'http': 'HTTP',
+            'https': 'HTTPS',
+            'url': 'адрес (URL)',
+            'link': 'ссылка',
+            'host': 'хост',
+            'domain': 'домен',
+            'certificate': 'сертификат',
+            'ssl': 'SSL',
+            'tls': 'TLS',
+            'firewall': 'межсетевой экран',
+            'virus': 'вирус',
+            'malware': 'вредоносное ПО',
+            'security': 'безопасность',
+            'backup': 'резервная копия',
+            'restore': 'восстановить',
+            'log': 'журнал',
+            'debug': 'отладка',
+            'test': 'тест',
+            'qa': 'контроль качества',
+            'devops': 'девопс',
+            'ci': 'непрерывная интеграция',
+            'cd': 'непрерывное развертывание',
+            'git': 'Git',
+            'repo': 'репозиторий',
+            'branch': 'ветка',
+            'merge': 'слияние',
+            'commit': 'коммит',
+            'push': 'отправить',
+            'pull': 'получить',
+            'clone': 'клонировать',
+            'fork': 'форк',
+            'pullrequest': 'запрос на включение',
+            'issue': 'проблема',
+            'ticket': 'тикет',
+            'project': 'проект',
+            'task': 'задача',
+            'todo': 'список задач',
+            'milestone': 'веха',
+            'sprint': 'спринт',
+            'agile': 'агILE',
+            'scrum': 'Scrum',
+            'kanban': 'Канбан',
+            'board': 'доска',
+            'chart': 'график',
+            'graph': 'граф',
+            'report': 'отчет',
+            'dashboard': 'панель управления',
+            'metric': 'метрика',
+            'kpi': 'KPI',
+            'roi': 'ROI',
+            'seo': 'SEO',
+            'sem': 'SEM',
+            'ppc': 'PPC',
+            'crm': 'CRM',
+            'erp': 'ERP',
+            'cms': 'CMS',
+            'saas': 'SaaS',
+            'paas': 'PaaS',
+            'iaas': 'IaaS',
+            'b2b': 'B2B',
+            'b2c': 'B2C',
+            'c2c': 'C2C',
+            'p2p': 'P2P',
         }
 
-        return common_foreign.get(word_lower, "Рассмотрите возможность использования русского термина")
+        suggestion = common_foreign.get(word_lower)
+        if suggestion:
+            return suggestion
+
+        # 3. Общая рекомендация
+        return "Рассмотрите возможность использования русского термина"
 
     def _is_mixed_language_word(self, word: str) -> bool:
         """
@@ -350,25 +477,30 @@ class LanguageChecker:
         return recommendations
 
     def _assess_risk(self, results: Dict) -> str:
-        """Оценка уровня риска"""
+        """Оценка уровня риска с настраиваемыми порогами"""
         if results['summary']['has_prohibited']:
             return 'high'
-        
+
+        # Читаем пороги из переменных окружения (с значениями по умолчанию)
+        violation_threshold = int(os.getenv('RISK_THRESHOLD_VIOLATIONS', '5'))
+        foreign_ratio_threshold = float(os.getenv('RISK_THRESHOLD_FOREIGN_RATIO', '0.1'))
+        foreign_count_threshold = int(os.getenv('RISK_THRESHOLD_FOREIGN_COUNT', '3'))
+
         # Много нарушений (запрещенные слова + foreign_with_alternative)
-        if results['summary']['violation_count'] > 5:
+        if results['summary']['violation_count'] > violation_threshold:
             return 'medium'
-        
+
         # Иностранные слова без русского аналога (status 'foreign')
         if results['summary']['has_foreign']:
             total_words = results['statistics']['total_words']
             foreign_count = len(results['checks']['foreign_words'])
             if total_words > 0:
                 foreign_ratio = foreign_count / total_words
-                # medium если иностранных слов >10% от текста или хотя бы 3 слова
-                if foreign_ratio > 0.1 or foreign_count >= 3:
+                # medium если иностранных слов превышает порог по доле или количеству
+                if foreign_ratio > foreign_ratio_threshold or foreign_count >= foreign_count_threshold:
                     return 'medium'
             # Если total_words == 0, low
-        
+
         return 'low'
 
     def get_dictionary_info(self) -> List[Dict]:
