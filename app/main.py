@@ -8,7 +8,7 @@ import re
 import tempfile
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -90,6 +90,12 @@ async def startup_event():
 async def root(request: Request):
     """Главная страница с веб-интерфейсом"""
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/robots.txt", response_class=FileResponse)
+async def robots_txt():
+    """robots.txt файл"""
+    return FileResponse("app/web/static/robots.txt", media_type="text/plain")
 
 
 @app.post("/api/v1/check")

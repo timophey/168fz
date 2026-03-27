@@ -1,0 +1,17 @@
+# robots.txt для 168-ФЗ Text Checker
+# https://www.168-fz.ru/
+
+User-agent: *
+Allow: /
+
+# Sitemap location (если будет)
+# Sitemap: https://168-fz.ru/sitemap.xml
+
+# Запрещаем индексацию служебных API эндпоинтов
+Disallow: /api/
+Disallow: /static/js/
+Disallow: /static/css/
+
+# Разрешаем индексацию основной страницы
+Allow: /static/
+Allow: /$/
