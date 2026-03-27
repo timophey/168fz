@@ -297,7 +297,15 @@ class LanguageChecker:
         """
         Проверка корректности употребления слова в контексте
         
-        Базовая реализация: проверяем, что слово есть в нормативном словаре
+        Базовая реализация: проверяет, что слово есть в нормативном словаре.
+        
+        ПРИМЕЧАНИЕ: Этот метод в настоящее время НЕ используется в основном потоке проверки.
+        Он оставлен для возможного будущего расширения (например, контекстного анализа).
+        
+        Текущая логика нормативных нарушений (ст. 6 закона):
+        - Нарушением считается использование иностранного слова, когда есть утвержденный русский аналог.
+        - Это проверяется в основном цикле (check_text): если статус "foreign_with_alternative",
+          добавляется запись в normative_violations.
         """
         normative_dict = self.dict_manager.dictionaries.get('нормативный_словарь', {}).get('words', set())
         return word.lower() in normative_dict
@@ -356,9 +364,11 @@ class LanguageChecker:
         """Оценка уровня риска"""
         if results['summary']['has_prohibited']:
             return 'high'
-        elif results['summary']['has_foreign'] and len(results['checks']['foreign_words']) > 10:
+        elif results['summary']['violation_count'] > 5:
+            # Считаем все нарушения: запрещенные слова, иностранные без аналога, нормативные
             return 'medium'
-        elif len(results['checks']['normative_violations']) > 5:
+        elif results['summary']['has_foreign'] and len(results['checks']['foreign_words']) >= 1:
+            # Даже одно иностранное слово без русского аналога - риск
             return 'medium'
         else:
             return 'low'
