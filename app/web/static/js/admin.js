@@ -245,10 +245,23 @@ async function loadAllDictionariesStatus() {
             return;
         }
         
-        let html = '<div class="table-responsive"><table class="table table-sm table-hover mb-0">';
+        // Get unique categories for filter
+        const categories = [...new Set(dictionaries.map(d => d.category || 'Другие словари'))];
+        const filterSelect = document.getElementById('categoryFilter');
+        if (filterSelect) {
+            filterSelect.innerHTML = '<option value="">Все категории</option>';
+            categories.sort().forEach(cat => {
+                filterSelect.innerHTML += `
+                    <option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>
+                `;
+            });
+        }
+        
+        let html = '<div class="table-responsive"><table class="table table-sm table-hover mb-0" id="allDictsTable">';
         html += `
             <thead>
                 <tr>
+                    <th>Категория</th>
                     <th>Словарь</th>
                     <th>Тип</th>
                     <th>Слов</th>
@@ -260,13 +273,17 @@ async function loadAllDictionariesStatus() {
         `;
         
         dictionaries.forEach(dict => {
-            const isUserDict = dict.source === 'user' || dict.name.startsWith('user_');
             const statusBadge = dict.synced ? 
                 '<span class="badge bg-success">Актуален</span>' : 
                 '<span class="badge bg-warning text-dark">Требует обновления</span>';
             
+            const category = dict.category || 'Другие словари';
+            const color = getCategoryColor(category);
+            const categoryBadge = `<span class="badge bg-${color} category-badge">${escapeHtml(category)}</span>`;
+            
             html += `
-                <tr>
+                <tr data-category="${escapeHtml(category)}">
+                    <td>${categoryBadge}</td>
                     <td><strong>${escapeHtml(dict.name)}</strong></td>
                     <td>${escapeHtml(dict.source || 'unknown')}</td>
                     <td>${dict.words_count ? dict.words_count.toLocaleString() : 'N/A'}</td>
@@ -278,6 +295,22 @@ async function loadAllDictionariesStatus() {
         
         html += '</tbody></table></div>';
         container.innerHTML = html;
+        
+        // Add filter functionality
+        const categoryFilter = document.getElementById('categoryFilter');
+        if (categoryFilter) {
+            categoryFilter.addEventListener('change', function() {
+                const selectedCategory = this.value;
+                const rows = container.querySelectorAll('#allDictsTable tbody tr');
+                rows.forEach(row => {
+                    if (selectedCategory === '' || row.dataset.category === selectedCategory) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        }
     } catch (error) {
         document.getElementById('allDictionariesStatus').innerHTML = 
             '<div class="alert alert-danger">Ошибка загрузки списка словарей</div>';
@@ -299,6 +332,7 @@ async function loadUserDictionaries() {
         html += `
             <thead>
                 <tr>
+                    <th>Категория</th>
                     <th>Имя</th>
                     <th>Слов</th>
                     <th>Версия</th>
@@ -309,8 +343,13 @@ async function loadUserDictionaries() {
         `;
         
         userDicts.forEach(dict => {
+            const category = dict.category || 'Другие словари';
+            const color = getCategoryColor(category);
+            const categoryBadge = `<span class="badge bg-${color} category-badge">${escapeHtml(category)}</span>`;
+            
             html += `
                 <tr>
+                    <td>${categoryBadge}</td>
                     <td><strong>${escapeHtml(dict.name)}</strong></td>
                     <td>${dict.words_count ? dict.words_count.toLocaleString() : 'N/A'}</td>
                     <td>${escapeHtml(dict.version || 'N/A')}</td>
@@ -471,6 +510,23 @@ function showAlert(message, type = 'info') {
             alert.remove();
         }
     }, 5000);
+}
+
+// Category color mapping (should match category_mapping.json)
+function getCategoryColor(category) {
+    const colorMap = {
+        'Запрещенные слова': 'danger',
+        'Иностранные слова': 'warning',
+        'Разрешенные иностранные термины': 'info',
+        'Нормативные слова': 'success',
+        'Технические термины': 'purple',
+        'Топонимы': 'teal',
+        'Аббревиатуры': 'orange',
+        'Профессионализмы и жаргон': 'pink',
+        'Термины': 'secondary',
+        'Другие словари': 'light'
+    };
+    return colorMap[category] || 'secondary';
 }
 
 // Экспорт функций в глобальную область

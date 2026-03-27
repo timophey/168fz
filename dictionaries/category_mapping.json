@@ -10,5 +10,57 @@
   "технические_термины": "Технические термины",
   "профессионализмы_жаргон": "Профессионализмы и жаргон",
   "топонимы": "Топонимы",
-  "hunspell_ru": "Нормативные слова"
+  "hunspell_ru": "Нормативные слова",
+  "categories": {
+    "Запрещенные слова": {
+      "color": "danger",
+      "icon": "fa-skull-crossbones",
+      "description": "Слова, запрещенные ст. 6.1 ФЗ-168"
+    },
+    "Иностранные слова": {
+      "color": "warning",
+      "icon": "fa-language",
+      "description": "Иностранные слова без русского аналога (ст. 6)"
+    },
+    "Разрешенные иностранные термины": {
+      "color": "info",
+      "icon": "fa-check-circle",
+      "description": "Иностранные термины, разрешенные к использованию"
+    },
+    "Нормативные слова": {
+      "color": "success",
+      "icon": "fa-book",
+      "description": "Стандартные русские слова"
+    },
+    "Технические термины": {
+      "color": "purple",
+      "icon": "fa-code",
+      "description": "IT и технические термины"
+    },
+    "Топонимы": {
+      "color": "teal",
+      "icon": "fa-map-marker-alt",
+      "description": "Географические названия"
+    },
+    "Аббревиатуры": {
+      "color": "orange",
+      "icon": "fa-abbr",
+      "description": "Сокращения и аббревиатуры"
+    },
+    "Профессионализмы и жаргон": {
+      "color": "pink",
+      "icon": "fa-users",
+      "description": "Профессиональный сленг"
+    },
+    "Термины": {
+      "color": "secondary",
+      "icon": "fa-thesaurus",
+      "description": "Лингвистические ресурсы и тезаурус"
+    },
+    "Другие словари": {
+      "color": "light",
+      "icon": "fa-folder",
+      "description": "Прочие словари"
+    }
+  }
 }

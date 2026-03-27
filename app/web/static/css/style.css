@@ -4,7 +4,11 @@
     --warning-color: #ffc107;
     --danger-color: #dc3545;
     --info-color: #0dcaf0;
-}
+    --purple-color: #6f42c1;
+    --teal-color: #20c997;
+    --orange-color: #fd7e14;
+    --pink-color: #e83e8c;
+  }
 
 /* Разрешенные иностранные слова */
 #allowedForeignInput {
@@ -20,7 +24,217 @@
 body {
     background-color: #f8f9fa;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
+  }
+
+  /* Custom background colors for category badges */
+  .bg-purple {
+    background-color: var(--purple-color) !important;
+    color: #fff;
+  }
+
+  .bg-teal {
+    background-color: var(--teal-color) !important;
+    color: #fff;
+  }
+
+  .bg-orange {
+    background-color: var(--orange-color) !important;
+    color: #fff;
+  }
+
+  .bg-pink {
+    background-color: var(--pink-color) !important;
+    color: #fff;
+  }
+
+  /* Category cards styling */
+  .category-card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .category-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  }
+
+  .category-card .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+
+  .category-card .card-header .category-icon {
+    font-size: 1.2rem;
+    width: 24px;
+    text-align: center;
+  }
+
+  .category-card .card-header .category-title {
+    flex: 1;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .category-card .card-body {
+    padding: 12px 16px;
+  }
+
+  .category-card .category-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    color: #6c757d;
+  }
+
+  .category-card .category-stats .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .category-card .category-stats .stat-value {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #212529;
+  }
+
+  .category-card .category-stats .stat-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+  }
+
+  .category-card .dictionary-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .category-card .dictionary-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 4px 0;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    border-left: 3px solid var(--info-color);
+    transition: background-color 0.2s;
+    gap: 10px;
+  }
+
+  .category-card .dictionary-list li:hover {
+    background-color: #e9ecef;
+  }
+
+  .category-card .dictionary-list li.synced {
+    border-left-color: var(--success-color);
+  }
+
+  .category-card .dictionary-list li.local {
+    border-left-color: var(--warning-color);
+  }
+
+  .category-card .dictionary-list li .dict-name {
+    font-weight: 500;
+    color: #212529;
+    flex: 1;
+  }
+
+  .category-card .dictionary-list li .dict-words {
+    font-size: 0.85rem;
+    color: #6c757d;
+    white-space: nowrap;
+  }
+
+  .category-card .dictionary-list li .dict-status {
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .category-card .dictionary-list li .dict-actions {
+    flex-shrink: 0;
+  }
+
+  .category-card .empty-category {
+    color: #6c757d;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+  }
+
+  /* Category badge for tables */
+  .category-badge {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 500;
+  }
+
+  /* Admin table category grouping */
+  .category-group-header {
+    background-color: #e9ecef;
+    padding: 8px 12px;
+    margin: 16px 0 8px 0;
+    border-radius: 4px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 4px solid var(--info-color);
+  }
+
+  .category-group-header .group-icon {
+    font-size: 1rem;
+  }
+
+  .category-group-header .group-title {
+    flex: 1;
+  }
+
+  .category-group-header .group-count {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: normal;
+  }
+
+  /* Filter dropdown styling */
+  #categoryFilter {
+    max-width: 250px;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .category-card .card-header {
+      padding: 10px 12px;
+    }
+
+    .category-card .card-body {
+      padding: 10px 12px;
+    }
+
+    .category-card .category-stats {
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .category-card .dictionary-list li {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .category-card .dictionary-list li .dict-words,
+    .category-card .dictionary-list li .dict-status {
+      margin-left: 0;
+    }
+  }
 
 .navbar-brand {
     font-weight: bold;

@@ -265,9 +265,11 @@ function displayDetailedResults(data) {
             const rowClass = getStatusRowClass(wordData.status);
             const count = wordData.count || 1;
             
-            let categoriesHtml = wordData.categories.map(cat =>
-                `<span class="badge bg-secondary">${escapeHtml(cat)}</span>`
-            ).join(' ');
+            // Get category metadata for colors
+            let categoriesHtml = wordData.categories.map(cat => {
+                const categoryColor = getCategoryColor(cat);
+                return `<span class="badge bg-${categoryColor} category-badge">${escapeHtml(cat)}</span>`;
+            }).join(' ');
             
             let recommendationHtml = '';
             if (wordData.law_article) {
@@ -474,6 +476,40 @@ function getStatusRowClass(status) {
         'foreign_with_alternative': 'table-warning'
     };
     return classes[status] || '';
+}
+
+// Category color mapping (should match category_mapping.json)
+function getCategoryColor(category) {
+    const colorMap = {
+        'Запрещенные слова': 'danger',
+        'Иностранные слова': 'warning',
+        'Разрешенные иностранные термины': 'info',
+        'Нормативные слова': 'success',
+        'Технические термины': 'purple',
+        'Топонимы': 'teal',
+        'Аббревиатуры': 'orange',
+        'Профессионализмы и жаргон': 'pink',
+        'Термины': 'secondary',
+        'Другие словари': 'light'
+    };
+    return colorMap[category] || 'secondary';
+}
+
+// Category icon mapping
+function getCategoryIcon(category) {
+    const iconMap = {
+        'Запрещенные слова': 'fa-skull-crossbones',
+        'Иностранные слова': 'fa-language',
+        'Разрешенные иностранные термины': 'fa-check-circle',
+        'Нормативные слова': 'fa-book',
+        'Технические термины': 'fa-code',
+        'Топонимы': 'fa-map-marker-alt',
+        'Аббревиатуры': 'fa-abbr',
+        'Профессионализмы и жаргон': 'fa-users',
+        'Термины': 'fa-thesaurus',
+        'Другие словари': 'fa-folder'
+    };
+    return iconMap[category] || 'fa-folder';
 }
 
 // Глобальные переменные для сортировки
@@ -703,24 +739,69 @@ async function loadDictionariesStatus() {
             return;
         }
         
-        let html = '<div class="row">';
+        // Group dictionaries by category
+        const categories = {};
         dictionaries.forEach(dict => {
+            const category = dict.category || 'Другие словари';
+            if (!categories[category]) {
+                categories[category] = {
+                    name: category,
+                    dictionaries: [],
+                    totalWords: 0
+                };
+            }
+            categories[category].dictionaries.push(dict);
+            categories[category].totalWords += dict.words_count || 0;
+        });
+        
+        // Render category cards using getCategoryColor and getCategoryIcon
+        let html = '<div class="row">';
+        Object.values(categories).forEach(category => {
+            const color = getCategoryColor(category.name);
+            const icon = getCategoryIcon(category.name);
+            const dictCount = category.dictionaries.length;
+            const totalWords = category.totalWords.toLocaleString();
+            
             html += `
-                <div class="col-md-6">
-                    <div class="dict-item ${dict.status}">
-                        <div class="dict-header">
-                            <div class="dict-info">
-                                <div class="dict-name">${escapeHtml(dict.name)}</div>
-                                <div class="dict-meta">
-                                    ${dict.words_count.toLocaleString()} слов | версия ${dict.version || 'N/A'}
+                <div class="col-md-6 col-lg-6 mb-3">
+                    <div class="card category-card h-100">
+                        <div class="card-header bg-${color} text-white">
+                            <i class="fas ${icon} category-icon"></i>
+                            <h6 class="category-title">${escapeHtml(category.name)}</h6>
+                            <span class="badge bg-light text-dark ms-2">${dictCount} словаря</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="category-stats">
+                                <div class="stat-item">
+                                    <div class="stat-value">${totalWords}</div>
+                                    <div class="stat-label">слов</div>
                                 </div>
                             </div>
-                            <div class="dict-actions">
-                                <button class="btn btn-sm btn-outline-primary btn-view" 
-                                        onclick="viewDictionary('${escapeHtml(dict.name)}')">
-                                    <i class="fas fa-eye"></i> Просмотреть
-                                </button>
-                            </div>
+                            <ul class="dictionary-list">
+            `;
+            
+            category.dictionaries.forEach(dict => {
+                const statusClass = dict.status === 'synced' ? 'synced' : 'local';
+                const statusBadge = dict.status === 'synced' 
+                    ? '<span class="badge bg-success">Актуален</span>'
+                    : '<span class="badge bg-warning text-dark">Локальный</span>';
+                
+                html += `
+                    <li class="${statusClass}">
+                        <span class="dict-name">${escapeHtml(dict.name)}</span>
+                        <div class="dict-words-and-status" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span class="dict-words">${dict.words_count ? dict.words_count.toLocaleString() : 'N/A'} слов</span>
+                            ${statusBadge}
+                            <button class="btn btn-sm btn-outline-primary dict-actions" onclick="viewDictionary('${escapeHtml(dict.name)}')">
+                                <i class="fas fa-eye"></i> Просмотреть
+                            </button>
+                        </div>
+                    </li>
+                `;
+            });
+            
+            html += `
+                            </ul>
                         </div>
                     </div>
                 </div>

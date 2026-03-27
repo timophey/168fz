@@ -123,8 +123,13 @@
 
                 <!-- Карточка управления словарями -->
                 <div class="card mb-4">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-book"></i> Загруженные словари</h5>
+                        <div>
+                            <select class="form-select form-select-sm" id="categoryFilter" style="width: auto; display: inline-block;">
+                                <option value="">Все категории</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div id="userDictionariesList">
