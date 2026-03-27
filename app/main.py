@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form, Depends
 from typing import List, Optional
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,12 +52,17 @@ templates = Jinja2Templates(directory="app/web/templates")
 
 # Глобальные менеджеры
 dictionaries_dir = Path(os.getenv('DICTIONARIES_DIR', 'dictionaries/data'))
+user_data_dir = Path(os.getenv('USER_DATA_DIR', 'dictionaries/user_data'))
 synchronizer = DictionarySynchronizer(
     data_dir=dictionaries_dir,
     cache_dir=Path('sync/cache')
 )
 # Передаем метаданные синхронизации в DictionaryManager для отображения статуса
-dict_manager = DictionaryManager(dictionaries_dir, synchronizer.metadata)
+dict_manager = DictionaryManager(
+    dictionaries_dir=dictionaries_dir,
+    sync_metadata=synchronizer.metadata,
+    user_data_dir=user_data_dir
+)
 checker = LanguageChecker(dictionaries_dir)
 # Обновляем checker.dict_manager, чтобы он тоже имел доступ к метаданным
 checker.dict_manager = dict_manager
@@ -401,6 +406,211 @@ async def load_dictionary(request: Request, admin_auth: bool = Depends(verify_ad
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/dictionaries/{dict_name}/export")
+async def export_dictionary(
+    dict_name: str,
+    admin_auth: bool = Depends(verify_admin_key)
+):
+    """
+    Экспорт словаря в XLSX файл (требуются права администратора)
+    
+    Возвращает XLSX файл с колонками: word, russian_analog, category, description
+    """
+    try:
+        # Проверяем существование словаря
+        if dict_name not in dict_manager.dictionaries:
+            raise HTTPException(status_code=404, detail=f"Словарь '{dict_name}' не найден")
+        
+        # Создаем временный файл
+        temp_file = tempfile.NamedTemporaryFile(mode='wb', suffix='.xlsx', delete=False)
+        temp_path = Path(temp_file.name)
+        temp_file.close()
+        
+        try:
+            # Экспортируем словарь
+            dict_manager.export_dictionary_to_xlsx(dict_name, temp_path)
+            
+            # Возвращаем файл
+            return FileResponse(
+                path=temp_path,
+                filename=f"{dict_name}.xlsx",
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            # В случае ошибки удаляем временный файл
+            if temp_path.exists():
+                temp_path.unlink()
+            raise e
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка экспорта: {str(e)}")
+
+
+@app.post("/api/v1/dictionaries/import")
+async def import_dictionary(
+    request: Request,
+    file: UploadFile = File(...),
+    name: Optional[str] = Form(None),
+    category: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    overwrite: bool = Form(False),
+    admin_auth: bool = Depends(verify_admin_key)
+):
+    """
+    Импорт словаря из XLSX файла (требуются права администратора)
+    
+    Параметры формы:
+    - file: XLSX файл
+    - name: опциональное имя словаря (если не указано - из имени файла)
+    - category: категория (если не указано - из файла)
+    - description: описание (если не указано - из файла)
+    - overwrite: перезаписать если существует (true/false)
+    """
+    try:
+        # Проверяем расширение файла
+        file_ext = Path(file.filename).suffix.lower()
+        if file_ext != '.xlsx':
+            raise HTTPException(
+                status_code=400,
+                detail=f"Поддерживается только XLSX формат. Получен: {file_ext}"
+            )
+        
+        # Проверяем размер файла (ограничение 10MB)
+        content = await file.read()
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Файл слишком большой. Максимум 10MB")
+        
+        # Сохраняем во временный файл
+        with tempfile.NamedTemporaryFile(mode='wb', suffix='.xlsx', delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = Path(tmp.name)
+        
+        try:
+            # Валидация и импорт
+            dict_name = dict_manager.import_dictionary_from_xlsx(
+                filepath=tmp_path,
+                name=name,
+                category=category,
+                description=description,
+                overwrite=overwrite
+            )
+            
+            return JSONResponse({
+                "success": True,
+                "message": f"Словарь импортирован: {dict_name}",
+                "data": {"name": dict_name}
+            })
+        finally:
+            # Удаляем временный файл
+            if tmp_path.exists():
+                tmp_path.unlink()
+                
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка импорта: {str(e)}")
+
+
+@app.delete("/api/v1/dictionaries/{dict_name}")
+async def delete_dictionary(
+    dict_name: str,
+    admin_auth: bool = Depends(verify_admin_key)
+):
+    """
+    Удаление пользовательского словаря (требуются права администратора)
+    
+    Можно удалять только пользовательские словари (source=user)
+    """
+    try:
+        success = dict_manager.delete_user_dictionary(dict_name)
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Словарь '{dict_name}' не найден или не является пользовательским"
+            )
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"Словарь удален: {dict_name}"
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/dictionaries/template/xlsx")
+async def get_template_xlsx(admin_auth: bool = Depends(verify_admin_key)):
+    """
+    Получение шаблона XLSX файла для создания пользовательского словаря
+    (требуются права администратора)
+    """
+    try:
+        # Создаем временный файл с шаблоном
+        temp_file = tempfile.NamedTemporaryFile(mode='wb', suffix='.xlsx', delete=False)
+        temp_path = Path(temp_file.name)
+        temp_file.close()
+        
+        try:
+            # Создаем шаблон с примером данных
+            from openpyxl import Workbook
+            
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Словарь"
+            
+            # Заголовки
+            headers = ['word', 'russian_analog', 'category', 'description']
+            for col, header in enumerate(headers, 1):
+                ws.cell(row=1, column=col, value=header)
+            
+            # Примеры данных
+            examples = [
+                ('online', 'в сети, онлайн', 'Иностранные слова', 'Пример описания'),
+                ('download', 'скачать', 'Иностранные слова', ''),
+                ('bug', 'ошибка', 'Профессионализмы', ''),
+            ]
+            
+            for row_idx, (word, analog, cat, desc) in enumerate(examples, 2):
+                ws.cell(row=row_idx, column=1, value=word)
+                ws.cell(row=row_idx, column=2, value=analog)
+                ws.cell(row=row_idx, column=3, value=cat)
+                ws.cell(row=row_idx, column=4, value=desc)
+            
+            # Автоматическая ширина колонок
+            for column in ws.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                ws.column_dimensions[column_letter].width = adjusted_width
+            
+            wb.save(temp_path)
+            wb.close()
+            
+            return FileResponse(
+                path=temp_path,
+                filename="template_dictionary.xlsx",
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            if temp_path.exists():
+                temp_path.unlink()
+            raise e
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка создания шаблона: {str(e)}")
 
 
 @app.get("/api/v1/allowed-foreign")

@@ -3,6 +3,7 @@
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 from .loader import DictionaryLoader
@@ -11,16 +12,18 @@ from .loader import DictionaryLoader
 class DictionaryManager:
     """Управление словарями и проверка слов"""
 
-    def __init__(self, dictionaries_dir: Path = None, sync_metadata: Dict = None, category_mapping_file: Path = None):
+    def __init__(self, dictionaries_dir: Path = None, sync_metadata: Dict = None, category_mapping_file: Path = None, user_data_dir: Path = None):
         """
         Инициализация менеджера словарей
 
         Args:
-            dictionaries_dir: Путь к папке со словарями
+            dictionaries_dir: Путь к папке со словарями (официальные)
             sync_metadata: Метаданные синхронизации от DictionarySynchronizer
             category_mapping_file: Путь к файлу с маппингом словарей → категорий
+            user_data_dir: Путь к папке с пользовательскими словарями
         """
         self.dictionaries_dir = dictionaries_dir or Path('dictionaries/data')
+        self.user_data_dir = user_data_dir or Path('dictionaries/user_data')
         self.dictionaries: Dict[str, Dict] = {}
         self.sync_metadata = sync_metadata or {}
         self.category_mapping: Dict[str, str] = {}
@@ -35,17 +38,50 @@ class DictionaryManager:
         self._load_default_dictionaries()
 
     def _load_default_dictionaries(self):
-        """Загрузка словарей из папки по умолчанию"""
+        """Загрузка словарей из папок data и user_data"""
+        # Загружаем официальные словари
         if self.dictionaries_dir.exists():
             for filepath in self.dictionaries_dir.glob('*.*'):
                 if filepath.suffix.lower() in ['.json', '.csv', '.txt']:
                     try:
                         dict_data = DictionaryLoader.load_dictionary(filepath)
                         dict_name = dict_data['name']
+                        # Официальные словари имеют source='official' или из метаданных
+                        if 'source' not in dict_data:
+                            dict_data['source'] = 'official'
                         self.dictionaries[dict_name] = dict_data
-                        print(f"Загружен словарь: {dict_name} ({len(dict_data['words'])} слов)")
+                        print(f"Загружен словарь: {dict_name} ({len(dict_data['words'])} слов) [официальный]")
                     except Exception as e:
                         print(f"Ошибка загрузки словаря {filepath}: {e}")
+        
+        # Загружаем пользовательские словари
+        if self.user_data_dir.exists():
+            for filepath in self.user_data_dir.glob('*.*'):
+                if filepath.suffix.lower() in ['.json', '.csv', '.txt']:
+                    try:
+                        dict_data = DictionaryLoader.load_dictionary(filepath)
+                        dict_name = dict_data['name']
+                        # Пользовательские словари имеют source='user'
+                        dict_data['source'] = 'user'
+                        # Добавляем префикс если нет
+                        if not dict_name.startswith('user_'):
+                            dict_name = f'user_{dict_name}'
+                            dict_data['name'] = dict_name
+                        # Если словарь с таким именем уже существует, добавляем timestamp
+                        original_name = dict_name
+                        counter = 1
+                        while dict_name in self.dictionaries:
+                            stem = filepath.stem
+                            dict_name = f'user_{stem}_{counter}'
+                            dict_data['name'] = dict_name
+                            counter += 1
+                        if original_name != dict_name:
+                            print(f"Переименовано: {original_name} -> {dict_name}")
+                        
+                        self.dictionaries[dict_name] = dict_data
+                        print(f"Загружен пользовательский словарь: {dict_name} ({len(dict_data['words'])} слов)")
+                    except Exception as e:
+                        print(f"Ошибка загрузки пользовательского словаря {filepath}: {e}")
 
     def load_dictionary(self, filepath: Path, name: str = None):
         """Загрузка дополнительного словаря"""
@@ -259,3 +295,161 @@ class DictionaryManager:
             return 'Профессионализмы и жаргон'
         else:
             return 'Другие словари'
+
+    def save_user_dictionary(self, name: str, words: Set[str], mappings: Dict = None, 
+                           category: str = None, description: str = None, 
+                           overwrite: bool = False) -> str:
+        """
+        Сохранение пользовательского словаря в user_data
+        
+        Args:
+            name: имя словаря (без префикса)
+            words: множество слов
+            mappings: словарь соответствий {слово: аналог}
+            category: категория
+            description: описание
+            overwrite: перезаписывать если существует
+            
+        Returns:
+            Имя сохраненного словаря (с префиксом user_ при необходимости)
+        """
+        # Подготавливаем имя файла
+        safe_name = name.lower().replace(' ', '_').replace('/', '_').replace('\\', '_')
+        filepath = self.user_data_dir / f"{safe_name}.json"
+        
+        # Если файл существует и не разрешено перезаписывать, добавляем счетчик
+        original_filepath = filepath
+        counter = 1
+        while filepath.exists() and not overwrite:
+            safe_name = f"{safe_name}_{counter}"
+            filepath = self.user_data_dir / f"{safe_name}.json"
+            counter += 1
+        
+        # Формируем имя словаря
+        dict_name = safe_name
+        if not dict_name.startswith('user_'):
+            dict_name = f'user_{dict_name}'
+        
+        # Формируем метаданные
+        dict_data = {
+            'name': dict_name,
+            'version': '1.0',
+            'source': 'user',
+            'generated_at': datetime.now().isoformat(),
+            'words': sorted(list(words)),
+            'mappings': mappings or {}
+        }
+        
+        if category:
+            dict_data['category'] = category
+        if description:
+            dict_data['description'] = description
+        
+        # Сохраняем JSON
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(dict_data, f, ensure_ascii=False, indent=2)
+        
+        # Добавляем в память
+        self.dictionaries[dict_name] = dict_data
+        
+        print(f"Сохранен пользовательский словарь: {dict_name} ({len(words)} слов) в {filepath}")
+        return dict_name
+
+    def delete_user_dictionary(self, dict_name: str) -> bool:
+        """
+        Удаление пользовательского словаря
+        
+        Returns:
+            True если удален, False если не найден или не пользовательский
+        """
+        if dict_name not in self.dictionaries:
+            return False
+        
+        dict_info = self.dictionaries[dict_name]
+        if dict_info.get('source') != 'user':
+            return False
+        
+        # Находим файл
+        filepath = Path(dict_info.get('filepath', ''))
+        if not filepath.exists():
+            # Пытаемся найти по имени
+            for f in self.user_data_dir.glob('*.json'):
+                try:
+                    with open(f, 'r', encoding='utf-8') as fp:
+                        data = json.load(fp)
+                        if data.get('name') == dict_name:
+                            filepath = f
+                            break
+                except:
+                    pass
+        
+        # Удаляем файл
+        if filepath.exists():
+            filepath.unlink()
+        
+        # Удаляем из памяти
+        del self.dictionaries[dict_name]
+        
+        print(f"Удален пользовательский словарь: {dict_name}")
+        return True
+
+    def export_dictionary_to_xlsx(self, dict_name: str, filepath: Path) -> None:
+        """
+        Экспорт словаря в XLSX файл
+        
+        Args:
+            dict_name: имя словаря
+            filepath: путь для сохранения XLSX
+        """
+        if dict_name not in self.dictionaries:
+            raise ValueError(f"Словарь '{dict_name}' не найден")
+        
+        dict_data = self.dictionaries[dict_name]
+        
+        # Используем DictionaryLoader.save_to_xlsx
+        DictionaryLoader.save_to_xlsx(dict_data, filepath)
+        
+        print(f"Экспортирован словарь {dict_name} в {filepath}")
+
+    def import_dictionary_from_xlsx(self, filepath: Path, name: str = None, 
+                                   category: str = None, description: str = None,
+                                   overwrite: bool = False) -> str:
+        """
+        Импорт словаря из XLSX файла
+        
+        Args:
+            filepath: путь к XLSX файлу
+            name: имя словаря (если None - из имени файла)
+            category: категория (если None - из файла)
+            description: описание (если None - из файла)
+            overwrite: перезаписывать существующий
+            
+        Returns:
+            Имя импортированного словаря
+        """
+        # Загружаем данные из XLSX
+        xlsx_data = DictionaryLoader.load_from_xlsx(filepath)
+        
+        # Определяем имя
+        if name:
+            dict_name = name
+        else:
+            dict_name = filepath.stem
+        
+        # Берем category из XLSX если не передан
+        if not category and 'category' in xlsx_data:
+            category = xlsx_data['category']
+        
+        # Берем description из XLSX если не передан
+        if not description and 'description' in xlsx_data:
+            description = xlsx_data['description']
+        
+        # Сохраняем как пользовательский словарь
+        return self.save_user_dictionary(
+            name=dict_name,
+            words=xlsx_data['words'],
+            mappings=xlsx_data.get('mappings', {}),
+            category=category,
+            description=description,
+            overwrite=overwrite
+        )

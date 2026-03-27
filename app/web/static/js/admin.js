@@ -328,7 +328,7 @@ async function loadUserDictionaries() {
             return;
         }
         
-        let html = '<div class="table-responsive"><table class="table table-sm table-hover mb-0">';
+        let html = '<div class="table-responsive"><table class="table table-sm table-hover mb-0" id="userDictsTable">';
         html += `
             <thead>
                 <tr>
@@ -348,14 +348,17 @@ async function loadUserDictionaries() {
             const categoryBadge = `<span class="badge bg-${color} category-badge">${escapeHtml(category)}</span>`;
             
             html += `
-                <tr>
+                <tr data-category="${escapeHtml(category)}">
                     <td>${categoryBadge}</td>
                     <td><strong>${escapeHtml(dict.name)}</strong></td>
                     <td>${dict.words_count ? dict.words_count.toLocaleString() : 'N/A'}</td>
                     <td>${escapeHtml(dict.version || 'N/A')}</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDictionary('${dict.name}')">
-                            <i class="fas fa-trash"></i> Удалить
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportDictionary('${dict.name}')" title="Экспорт в XLSX">
+                            <i class="fas fa-download"></i> XLSX
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDictionary('${dict.name}')" title="Удалить">
+                            <i class="fas fa-trash"></i>
                         </button>
                     </td>
                 </tr>
@@ -364,6 +367,14 @@ async function loadUserDictionaries() {
         
         html += '</tbody></table></div>';
         container.innerHTML = html;
+        
+        // Add filter functionality (shared with all dictionaries table)
+        const categoryFilter = document.getElementById('categoryFilter');
+        if (categoryFilter) {
+            // Сохраняем текущий фильтр и применяем к новой таблице
+            const currentFilter = categoryFilter.value;
+            categoryFilter.dispatchEvent(new Event('change'));
+        }
     } catch (error) {
         document.getElementById('userDictionariesList').innerHTML = 
             '<div class="alert alert-danger">Ошибка загрузки пользовательских словарей</div>';
@@ -474,7 +485,188 @@ async function loadSources() {
     }
 }
 
+// ==================== USER DICTIONARIES ====================
+
+async function downloadTemplate() {
+    try {
+        const response = await fetch('/api/v1/dictionaries/template/xlsx', {
+            method: 'GET',
+            headers: {
+                'X-Admin-Key': getAdminKey()
+            }
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Ошибка загрузки шаблона');
+        }
+        
+        // Получаем blob и скачиваем
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'template_dictionary.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showAlert('Шаблон скачан', 'success');
+    } catch (error) {
+        showAlert('Ошибка скачивания шаблона: ' + error.message, 'danger');
+    }
+}
+
+async function exportDictionary(dictName) {
+    try {
+        showAlert(`Экспорт словаря "${dictName}"...`, 'info');
+        
+        const response = await fetch(`/api/v1/dictionaries/${encodeURIComponent(dictName)}/export`, {
+            method: 'GET',
+            headers: {
+                'X-Admin-Key': getAdminKey()
+            }
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Ошибка экспорта');
+        }
+        
+        // Получаем blob и скачиваем
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${dictName}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showAlert(`Словарь "${dictName}" экспортирован`, 'success');
+    } catch (error) {
+        showAlert('Ошибка экспорта: ' + error.message, 'danger');
+    }
+}
+
+async function uploadDictionary() {
+    const fileInput = document.getElementById('dictFile');
+    const nameInput = document.getElementById('dictName');
+    const categorySelect = document.getElementById('dictCategory');
+    const descInput = document.getElementById('dictDescription');
+    const overwriteCheck = document.getElementById('dictOverwrite');
+    
+    if (!fileInput.files.length) {
+        showAlert('Выберите файл словаря', 'warning');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const name = nameInput.value.trim() || null;
+    const category = categorySelect.value.trim() || null;
+    const description = descInput.value.trim() || null;
+    const overwrite = overwriteCheck.checked;
+    
+    if (!confirm(`Импортировать словарь из файла "${file.name}"?${name ? `\nИмя: ${name}` : ''}${category ? `\nКатегория: ${category}` : ''}`)) {
+        return;
+    }
+    
+    try {
+        showAlert('Импорт словаря...', 'info');
+        
+        // Подготавливаем FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        if (name) formData.append('name', name);
+        if (category) formData.append('category', category);
+        if (description) formData.append('description', description);
+        formData.append('overwrite', overwrite);
+        
+        const response = await fetch('/api/v1/dictionaries/import', {
+            method: 'POST',
+            headers: {
+                'X-Admin-Key': getAdminKey()
+                // Не устанавливаем Content-Type - браузер установит multipart/form-data с boundary
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok || !data.success) {
+            throw new Error(data.detail || data.message || 'Ошибка импорта');
+        }
+        
+        showAlert(`Словарь импортирован: ${data.data.name}`, 'success');
+        
+        // Очищаем форму
+        fileInput.value = '';
+        nameInput.value = '';
+        categorySelect.value = '';
+        descInput.value = '';
+        overwriteCheck.checked = false;
+        
+        // Обновляем списки
+        setTimeout(() => {
+            loadUserDictionaries();
+            loadAllDictionariesStatus();
+        }, 500);
+    } catch (error) {
+        showAlert('Ошибка импорта: ' + error.message, 'danger');
+    }
+}
+
+async function deleteDictionary(dictName) {
+    if (!confirm(`Удалить словарь "${dictName}"? Это действие нельзя отменить.`)) {
+        return;
+    }
+    
+    try {
+        showAlert(`Удаление словаря "${dictName}"...`, 'info');
+        
+        const response = await fetch(`/api/v1/dictionaries/${encodeURIComponent(dictName)}`, {
+            method: 'DELETE',
+            headers: {
+                'X-Admin-Key': getAdminKey()
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok || !data.success) {
+            throw new Error(data.detail || data.message || 'Ошибка удаления');
+        }
+        
+        showAlert(`Словарь удален: ${dictName}`, 'success');
+        
+        // Обновляем списки
+        setTimeout(() => {
+            loadUserDictionaries();
+            loadAllDictionariesStatus();
+        }, 500);
+    } catch (error) {
+        showAlert('Ошибка удаления: ' + error.message, 'danger');
+    }
+}
+
 // ==================== UTILS ====================
+
+function getCategoryColor(category) {
+    const colors = {
+        'Запрещенные слова': 'danger',
+        'Иностранные слова': 'primary',
+        'Разрешенные иностранные термины': 'success',
+        'Нормативные слова': 'info',
+        'Термины': 'secondary',
+        'Аббревиатуры': 'dark',
+        'Топонимы': 'warning',
+        'Профессионализмы и жаргон': 'warning',
+        'Другие словари': 'light'
+    };
+    return colors[category] || 'secondary';
+}
 
 function escapeHtml(text) {
     const div = document.createElement('div');

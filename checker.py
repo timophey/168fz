@@ -124,13 +124,17 @@ class LanguageChecker:
                 # Не добавляем в prohibited_words или foreign_words, даже если оно там было бы
             else:
                 # 1. Запрещенные слова (высший приоритет после allowed_words)
-                is_prohibited = any(key in dict_name.lower()
-                                   for dict_name in dict_results.keys()
-                                   for key in ['запрещенные', 'ненормативная', 'обсценная', 'нецензурная'])
+                # Проверяем по категории словаря, а не по названию
+                is_prohibited = any(
+                    self.dict_manager.get_dictionary_category(dict_name) == 'Запрещенные слова'
+                    for dict_name in dict_results.keys()
+                )
                 
                 if is_prohibited:
                     status = "prohibited"
-                    first_dict = next((d for d in dict_results.keys() if any(k in d.lower() for k in ['запрещенные', 'ненормативная'])), None)
+                    # Находим первый словарь с категорией "Запрещенные слова"
+                    first_dict = next((d for d in dict_results.keys()
+                                       if self.dict_manager.get_dictionary_category(d) == 'Запрещенные слова'), None)
                     law_article = self._get_law_article(first_dict) if first_dict else 'Статья 6.1'
                     explanation = 'Запрещенное слово - требует немедленного удаления согласно ст. 6.1 закона'
                     results['checks']['prohibited_words'].append({
@@ -143,21 +147,11 @@ class LanguageChecker:
                     results['summary']['has_prohibited'] = True
                     results['summary']['violation_count'] += count
                 else:
-                    # Проверяем, является ли слово русским (находится в русских словарях, исключая явно иностранные)
-                    is_russian = False
-                    for dict_name in dict_results:
-                        dict_name_lower = dict_name.lower()
-                        # Пропускаем запрещенные словари
-                        if any(k in dict_name_lower for k in ['запрещенные', 'ненормативная', 'обсценная', 'нецензурная']):
-                            continue
-                        # Пропускаем явно иностранные словари
-                        if dict_name_lower in ['slovar_inostrannykh_slov', 'иностранные_слова', 'allowed_foreign']:
-                            continue
-                        # Пропускаем русские аналоги
-                        if 'русские_аналоги' in dict_name_lower:
-                            continue
-                        is_russian = True
-                        break
+                    # 2. Проверяем, является ли слово русским (находится в нормативных словарях)
+                    is_russian = any(
+                        self.dict_manager.get_dictionary_category(dict_name) == 'Нормативные слова'
+                        for dict_name in dict_results.keys()
+                    )
                     
                     if is_russian:
                         status = "ok"

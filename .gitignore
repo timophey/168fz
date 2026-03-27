@@ -78,3 +78,5 @@ temp/
 tmp/
 *.tmp
 *.temp
+# Пользовательские словари (не в git)
+dictionaries/user_data/

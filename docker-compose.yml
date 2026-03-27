@@ -9,12 +9,15 @@ services:
     volumes:
       # Монтируем словари для сохранения между перезапусками
       - ./dictionaries/data:/app/dictionaries/data
+      # Монтируем пользовательские словари (не в git)
+      - ./dictionaries/user_data:/app/dictionaries/user_data
       # Монтируем кэш синхронизации
       - ./sync/cache:/app/sync/cache
       # Монтируем конфиги
       - ./config:/app/config
     environment:
       - DICTIONARIES_DIR=/app/dictionaries/data
+      - USER_DATA_DIR=/app/dictionaries/user_data
       - HOST=0.0.0.0
       - PORT=${PORT:-8000}
     restart: unless-stopped

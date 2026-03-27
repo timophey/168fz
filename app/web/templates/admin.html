@@ -98,24 +98,55 @@
                         <h5 class="mb-0"><i class="fas fa-upload"></i> Загрузить пользовательский словарь</h5>
                     </div>
                     <div class="card-body">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Важно:</strong> Пользовательские словари хранятся отдельно от официальных и не синхронизируются.
+                        </div>
+                        
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-outline-primary" onclick="downloadTemplate()">
+                                <i class="fas fa-download"></i> Скачать шаблон XLSX
+                            </button>
+                        </div>
+                        
                         <form id="uploadDictForm">
                             <div class="mb-3">
-                                <label class="form-label">Файл словаря (JSON, CSV, TXT)</label>
-                                <input type="file" class="form-control" id="dictFile" accept=".json,.csv,.txt">
+                                <label class="form-label">Файл словаря (XLSX)</label>
+                                <input type="file" class="form-control" id="dictFile" accept=".xlsx">
                                 <div class="form-text">
-                                    Поддерживаемые форматы:<br>
-                                    - <strong>JSON</strong>: {"words": ["слово1", "слово2"], "categories": ["категория"]}<br>
-                                    - <strong>CSV</strong>: слово,категория (без заголовка)<br>
-                                    - <strong>TXT</strong>: одно слово на строку
+                                    Поддерживается только формат XLSX. Используйте шаблон для правильной структуры.
                                 </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Имя словаря (опционально)</label>
                                 <input type="text" class="form-control" id="dictName" placeholder="Например: мои_слова">
-                                <div class="form-text">Если не указано, будет сгенерировано автоматически</div>
+                                <div class="form-text">Если не указано, будет использовано имя файла</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Категория (опционально)</label>
+                                <select class="form-select" id="dictCategory">
+                                    <option value="">-- Выберите категорию --</option>
+                                    <option value="Запрещенные слова">Запрещенные слова</option>
+                                    <option value="Иностранные слова">Иностранные слова</option>
+                                    <option value="Разрешенные иностранные термины">Разрешенные иностранные термины</option>
+                                    <option value="Нормативные слова">Нормативные слова</option>
+                                    <option value="Термины">Термины</option>
+                                    <option value="Аббревиатуры">Аббревиатуры</option>
+                                    <option value="Топонимы">Топонимы</option>
+                                    <option value="Профессионализмы и жаргон">Профессионализмы и жаргон</option>
+                                    <option value="Другие словари">Другие словари</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Описание (опционально)</label>
+                                <textarea class="form-control" id="dictDescription" rows="2" placeholder="Краткое описание словаря"></textarea>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="dictOverwrite">
+                                <label class="form-check-label" for="dictOverwrite">Перезаписать существующий словарь с таким именем</label>
                             </div>
                             <button type="button" class="btn btn-secondary" onclick="uploadDictionary()">
-                                <i class="fas fa-upload"></i> Загрузить словарь
+                                <i class="fas fa-upload"></i> Импортировать словарь
                             </button>
                         </form>
                     </div>

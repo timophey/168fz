@@ -20,7 +20,7 @@ COPY --from=builder /root/.local /root/.local
 COPY . .
 
 # Создаем необходимые директории
-RUN mkdir -p dictionaries/data sync/cache app/web/static app/web/templates
+RUN mkdir -p dictionaries/data dictionaries/user_data sync/cache app/web/static app/web/templates
 
 # Устанавливаем переменные окружения
 ENV PATH=/root/.local/bin:$PATH
