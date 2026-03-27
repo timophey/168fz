@@ -299,23 +299,6 @@ class LanguageChecker:
         has_latin = bool(re.search(r'[a-zA-Z]', word))
         return has_cyrillic and has_latin
 
-    def _check_normative_usage(self, word: str, context: str) -> bool:
-        """
-        Проверка корректности употребления слова в контексте
-        
-        Базовая реализация: проверяет, что слово есть в нормативном словаре.
-        
-        ПРИМЕЧАНИЕ: Этот метод в настоящее время НЕ используется в основном потоке проверки.
-        Он оставлен для возможного будущего расширения (например, контекстного анализа).
-        
-        Текущая логика нормативных нарушений (ст. 6 закона):
-        - Нарушением считается использование иностранного слова, когда есть утвержденный русский аналог.
-        - Это проверяется в основном цикле (check_text): если статус "foreign_with_alternative",
-          добавляется запись в normative_violations.
-        """
-        normative_dict = self.dict_manager.dictionaries.get('нормативный_словарь', {}).get('words', set())
-        return word.lower() in normative_dict
-
     def _get_law_article(self, dict_name: str) -> str:
         """Определение статьи закона, нарушаемой при использовании слова"""
         law_articles = {
@@ -370,14 +353,23 @@ class LanguageChecker:
         """Оценка уровня риска"""
         if results['summary']['has_prohibited']:
             return 'high'
-        elif results['summary']['violation_count'] > 5:
-            # Считаем все нарушения: запрещенные слова, иностранные без аналога, нормативные
+        
+        # Много нарушений (запрещенные слова + foreign_with_alternative)
+        if results['summary']['violation_count'] > 5:
             return 'medium'
-        elif results['summary']['has_foreign'] and len(results['checks']['foreign_words']) >= 1:
-            # Даже одно иностранное слово без русского аналога - риск
-            return 'medium'
-        else:
-            return 'low'
+        
+        # Иностранные слова без русского аналога (status 'foreign')
+        if results['summary']['has_foreign']:
+            total_words = results['statistics']['total_words']
+            foreign_count = len(results['checks']['foreign_words'])
+            if total_words > 0:
+                foreign_ratio = foreign_count / total_words
+                # medium если иностранных слов >10% от текста или хотя бы 3 слова
+                if foreign_ratio > 0.1 or foreign_count >= 3:
+                    return 'medium'
+            # Если total_words == 0, low
+        
+        return 'low'
 
     def get_dictionary_info(self) -> List[Dict]:
         """Получение информации о загруженных словарях"""
