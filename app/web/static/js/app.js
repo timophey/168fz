@@ -750,6 +750,9 @@ let isLoadingMore = false;
  */
 async function viewDictionary(dictName) {
     try {
+        // Устанавливаем имя словаря ПЕРЕД загрузкой
+        currentDictionaryName = dictName;
+        
         // Показываем модальное окно с индикатором загрузки
         const modal = new bootstrap.Modal(document.getElementById('dictionaryWordsModal'));
         document.getElementById('dictionaryModalTitle').textContent = `Словарь: ${dictName}`;
