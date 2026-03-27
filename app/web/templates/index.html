@@ -54,7 +54,7 @@
                             <!-- Панель текста -->
                             <div class="tab-pane fade show active" id="text-panel" role="tabpanel">
                                 <div class="mb-3">
-                                    <textarea class="form-control" id="textInput" rows="8" 
+                                    <textarea class="form-control" id="textInput" rows="8"
                                         placeholder="Введите текст для проверки..."></textarea>
                                 </div>
                             </div>
@@ -64,7 +64,7 @@
                                 <div class="mb-3">
                                     <div class="input-group">
                                         <span class="input-group-text">https://</span>
-                                        <input type="url" class="form-control" id="urlInput" 
+                                        <input type="url" class="form-control" id="urlInput"
                                             placeholder="example.com/article">
                                     </div>
                                     <div class="form-text">Введите URL веб-страницы для проверки</div>
@@ -74,7 +74,7 @@
                             <!-- Панель файла -->
                             <div class="tab-pane fade" id="file-panel" role="tabpanel">
                                 <div class="mb-3">
-                                    <input type="file" class="form-control" id="fileInput" 
+                                    <input type="file" class="form-control" id="fileInput"
                                         accept=".txt,.md,.html,.htm,.json,.csv">
                                     <div class="form-text">
                                         Поддерживаемые форматы: TXT, MD, HTML, JSON, CSV
@@ -163,26 +163,23 @@
 
             <!-- Боковая панель -->
             <div class="col-lg-4">
-                <!-- Карточка синхронизации -->
+                <!-- Информация о доступе к админ-панели -->
                 <div class="card mb-4">
                     <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0"><i class="fas fa-sync"></i> Синхронизация</h5>
+                        <h5 class="mb-0"><i class="fas fa-user-shield"></i> Админ-панель</h5>
                     </div>
                     <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-warning" onclick="syncAll()">
-                                <i class="fas fa-download"></i> Синхронизировать все словари
-                            </button>
-                            <button class="btn btn-outline-warning" onclick="loadSyncStatus()">
-                                <i class="fas fa-info-circle"></i> Обновить статус
-                            </button>
+                        <p class="small">
+                            Для управления словарями и синхронизацией перейдите в
+                            <a href="/admin">админ-панель</a>.
+                        </p>
+                        <div class="form-text">
+                            <i class="fas fa-lock"></i> Требуется админ-ключ для доступа.
                         </div>
-                        <hr>
-                        <div id="syncStatus"></div>
                     </div>
                 </div>
 
-                <!-- Карточка источников -->
+                <!-- Карточка источников (только просмотр) -->
                 <div class="card mb-4">
                     <div class="card-header bg-info text-white">
                         <h5 class="mb-0"><i class="fas fa-database"></i> Источники словарей</h5>
@@ -195,28 +192,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Карточка загрузки словаря -->
-                <div class="card mb-4">
-                    <div class="card-header bg-secondary text-white">
-                        <h5 class="mb-0"><i class="fas fa-upload"></i> Загрузить словарь</h5>
-                    </div>
-                    <div class="card-body">
-                        <form id="uploadDictForm">
-                            <div class="mb-3">
-                                <label class="form-label">Файл словаря (JSON/CSV/TXT)</label>
-                                <input type="file" class="form-control" id="dictFile" accept=".json,.csv,.txt">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Имя (опционально)</label>
-                                <input type="text" class="form-control" id="dictName" placeholder="Мой словарь">
-                            </div>
-                            <button type="button" class="btn btn-secondary w-100" onclick="uploadDictionary()">
-                                <i class="fas fa-upload"></i> Загрузить
-                            </button>
-                        </form>
                     </div>
                 </div>
             </div>

@@ -8,7 +8,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form, Depends
 from typing import List, Optional
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,6 +19,9 @@ from dotenv import load_dotenv
 
 # Загружаем переменные окружения из .env файла
 load_dotenv()
+
+# Админский ключ для доступа к админ-панели
+ADMIN_KEY = os.getenv('ADMIN_KEY', 'admin123')
 
 # Импорты из текущего проекта
 from extractors import TextExtractor
@@ -89,12 +92,42 @@ async def startup_event():
     thread.start()
 
 
+# ==================== AUTHENTICATION ====================
+
+def verify_admin_key(request: Request):
+    """
+    Проверка админ-ключа.
+    Ключ можно передать либо в заголовке X-Admin-Key, либо в query параметре admin_key
+    """
+    admin_key = request.headers.get('X-Admin-Key') or request.query_params.get('admin_key')
+    
+    if not admin_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Требуется аутентификация. Передайте ключ в заголовке X-Admin-Key или параметре admin_key"
+        )
+    
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(
+            status_code=403,
+            detail="Неверный админ-ключ"
+        )
+    
+    return True
+
+
 # ==================== API ENDPOINTS ====================
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    """Главная страница с веб-интерфейсом"""
+    """Главная страница с веб-интерфейсом (публичная)"""
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_panel(request: Request):
+    """Админ-панель с управлением словарями и синхронизацией"""
+    return templates.TemplateResponse("admin.html", {"request": request})
 
 
 @app.get("/robots.txt", response_class=FileResponse)
@@ -266,9 +299,9 @@ async def get_dictionary_info(dict_name: str):
 
 
 @app.post("/api/v1/dictionaries/load")
-async def load_dictionary(request: Request):
+async def load_dictionary(request: Request, admin_auth: bool = Depends(verify_admin_key)):
     """
-    Загрузка дополнительного словаря
+    Загрузка дополнительного словаря (требуются права администратора)
     
     Принимает JSON: {"filepath": "путь/к/файлу.json", "name": "опциональное имя"}
     """
@@ -333,10 +366,40 @@ async def get_sync_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/v1/sync/all")
+async def sync_all(
+    request: Request,
+    force: bool = False,
+    admin_auth: bool = Depends(verify_admin_key)
+):
+    """Синхронизация всех словарей (требуются права администратора)"""
+    try:
+        results = synchronizer.sync_all(force)
+        
+        # Подсчитываем успешные/неуспешные
+        success_count = sum(1 for success, _ in results.values() if success)
+        total_count = len(results)
+        
+        return JSONResponse({
+            "success": success_count == total_count,
+            "message": f"Успешно: {success_count}/{total_count}",
+            "data": {
+                "results": {k: {"success": v[0], "message": v[1]} for k, v in results.items()}
+            }
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/v1/sync/{dict_name}")
-async def sync_dictionary(dict_name: str, force: bool = False):
+async def sync_dictionary(
+    request: Request,
+    dict_name: str,
+    force: bool = False,
+    admin_auth: bool = Depends(verify_admin_key)
+):
     """
-    Синхронизация конкретного словаря
+    Синхронизация конкретного словаря (требуются права администратора)
     
     Параметры query:
     - force: принудительная перезагрузка
@@ -361,27 +424,6 @@ async def sync_dictionary(dict_name: str, force: bool = False):
             
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/v1/sync/all")
-async def sync_all(force: bool = False):
-    """Синхронизация всех словарей"""
-    try:
-        results = synchronizer.sync_all(force)
-        
-        # Подсчитываем успешные/неуспешные
-        success_count = sum(1 for success, _ in results.values() if success)
-        total_count = len(results)
-        
-        return JSONResponse({
-            "success": success_count == total_count,
-            "message": f"Успешно: {success_count}/{total_count}",
-            "data": {
-                "results": {k: {"success": v[0], "message": v[1]} for k, v in results.items()}
-            }
-        })
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

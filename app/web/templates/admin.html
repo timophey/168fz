@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>168-ФЗ Text Checker - Админ-панель</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+        }
+        .admin-content {
+            display: none;
+        }
+        .admin-content.authenticated {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-balance-scale"></i> 168-ФЗ Text Checker
+            </a>
+            <span class="navbar-text text-light">
+                Админ-панель
+            </span>
+            <a href="/" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-arrow-left"></i> На главную
+            </a>
+        </div>
+    </nav>
+
+    <!-- Форма авторизации -->
+    <div id="loginForm" class="login-container">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-lock"></i> Вход в админ-панель</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Введите админ-ключ для доступа к управлению словарями и синхронизации.</p>
+                <form id="authForm">
+                    <div class="mb-3">
+                        <label for="adminKeyInput" class="form-label">Админ-ключ</label>
+                        <input type="password" class="form-control" id="adminKeyInput"
+                               placeholder="Введите ключ..." required autofocus>
+                        <div class="form-text">Ключ задается в переменной окружения ADMIN_KEY</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-sign-in-alt"></i> Войти
+                    </button>
+                    <div id="authError" class="alert alert-danger mt-3 d-none"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контент админ-панели (скрыт до авторизации) -->
+    <div id="adminContent" class="admin-content container-fluid mt-4">
+        <div class="row">
+            <!-- Основной контент -->
+            <div class="col-lg-8">
+                <!-- Карточка синхронизации -->
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-sync"></i> Синхронизация словарей</h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Автоматическая синхронизация:</strong> Приложение автоматически проверяет и загружает обновления официальных словарей при запуске.
+                            Здесь вы можете запустить синхронизацию вручную.
+                        </div>
+                        <div class="d-grid gap-2 d-md-flex">
+                            <button class="btn btn-warning" onclick="syncAll()">
+                                <i class="fas fa-download"></i> Синхронизировать все словари
+                            </button>
+                            <button class="btn btn-outline-warning" onclick="loadSyncStatus()">
+                                <i class="fas fa-info-circle"></i> Обновить статус
+                            </button>
+                        </div>
+                        <hr>
+                        <div id="syncStatus"></div>
+                    </div>
+                </div>
+
+                <!-- Карточка загрузки словаря -->
+                <div class="card mb-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0"><i class="fas fa-upload"></i> Загрузить пользовательский словарь</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="uploadDictForm">
+                            <div class="mb-3">
+                                <label class="form-label">Файл словаря (JSON, CSV, TXT)</label>
+                                <input type="file" class="form-control" id="dictFile" accept=".json,.csv,.txt">
+                                <div class="form-text">
+                                    Поддерживаемые форматы:<br>
+                                    - <strong>JSON</strong>: {"words": ["слово1", "слово2"], "categories": ["категория"]}<br>
+                                    - <strong>CSV</strong>: слово,категория (без заголовка)<br>
+                                    - <strong>TXT</strong>: одно слово на строку
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Имя словаря (опционально)</label>
+                                <input type="text" class="form-control" id="dictName" placeholder="Например: мои_слова">
+                                <div class="form-text">Если не указано, будет сгенерировано автоматически</div>
+                            </div>
+                            <button type="button" class="btn btn-secondary" onclick="uploadDictionary()">
+                                <i class="fas fa-upload"></i> Загрузить словарь
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Карточка управления словарями -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-book"></i> Загруженные словари</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="userDictionariesList">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Боковая панель -->
+            <div class="col-lg-4">
+                <!-- Карточка источников -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-database"></i> Доступные источники</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="sourcesList">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Карточка статуса всех словарей -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Статус всех словарей</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="allDictionariesStatus">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Информация об админ-доступе -->
+                <div class="card mb-4">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0"><i class="fas fa-shield-alt"></i> Статус авторизации</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="small">
+                            <i class="fas fa-check-circle text-success"></i> Вы авторизованы как администратор
+                        </p>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/admin.js"></script>
+</body>
+</html>
