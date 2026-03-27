@@ -120,7 +120,7 @@ class LanguageChecker:
                 results['summary']['violation_count'] += count
                 # Не продолжаем проверку для запрещенных слов
             else:
-                # Проверяем, является ли слово русским (находится в русских словарях)
+                # Проверяем, является ли слово русским (находится в русских словарях, исключая явно иностранные)
                 is_russian = False
                 for dict_name in dict_results:
                     dict_name_lower = dict_name.lower()
@@ -128,7 +128,7 @@ class LanguageChecker:
                     if any(k in dict_name_lower for k in ['запрещенные', 'ненормативная', 'обсценная', 'нецензурная']):
                         continue
                     # Пропускаем явно иностранные словари
-                    if dict_name_lower in ['slovar_inostrannykh_slov', 'иностранные_слова', 'foreign_words_github', 'hunspell_en']:
+                    if dict_name_lower in ['slovar_inostrannykh_slov', 'иностранные_слова', 'allowed_foreign']:
                         continue
                     # Пропускаем русские аналоги
                     if 'русские_аналоги' in dict_name_lower:
@@ -141,12 +141,7 @@ class LanguageChecker:
                     explanation = 'Слово найдено в словаре русских слов'
                     if word_lower in normative_dict:
                         explanation = 'Слово соответствует нормативному словарю русского языка'
-                # 3. Проверяем разрешенные иностранные слова (международные стандарты, собственные имена)
-                elif word_lower in allowed_foreign:
-                    status = "allowed"
-                    explanation = 'Слово является разрешенным иностранным термином (международный стандарт/собственное имя)'
-                    # Не добавляем в foreign_words, так как это разрешено
-                # 4. Проверяем иностранные слова с утвержденными русскими аналогами
+                # 3. Проверяем иностранные слова с утвержденными русскими аналогами (ПЕРЕД allowed_foreign)
                 elif word_lower in russian_alternatives:
                     status = "foreign_with_alternative"
                     recommendation = self._suggest_russian_alternative(representative)
@@ -160,6 +155,11 @@ class LanguageChecker:
                         'explanation': explanation
                     })
                     results['summary']['has_foreign'] = True
+                # 4. Проверяем разрешенные иностранные слова (международные стандарты, собственные имена)
+                elif word_lower in allowed_foreign:
+                    status = "allowed"
+                    explanation = 'Слово является разрешенным иностранным термином (международный стандарт/собственное имя)'
+                    # Не добавляем в foreign_words, так как это разрешено
                 # 5. Проверяем другие иностранные слова (с латинскими буквами)
                 elif has_latin:
                     status = "foreign"
@@ -178,16 +178,17 @@ class LanguageChecker:
                     status = "unknown"
                     explanation = 'Слово не найдено ни в одном из загруженных словарей'
             
-            # Проверка нормативных нарушений (только для слов, которые в нормативном словаре и не запрещенные/иностранные)
-            if status == "ok" and word_lower in normative_dict:
-                if not self._check_normative_usage(representative, text):
-                    results['checks']['normative_violations'].append({
-                        'word': representative,
-                        'count': count,
-                        'dictionary': list(dict_results.keys())[0] if dict_results else 'нормативный_словарь',
-                        'issue': 'Некорректное употребление в контексте',
-                        'explanation': 'Слово найдено в нормативном словаре, но его употребление может быть некорректным в данном контексте.'
-                    })
+            # Проверка нормативных нарушений по ст. 6 закона
+            # Нарушение: использование иностранного слова, когда есть утвержденный русский аналог
+            if status == "foreign_with_alternative":
+                results['checks']['normative_violations'].append({
+                    'word': representative,
+                    'count': count,
+                    'dictionary': 'русские_аналоги',
+                    'issue': 'Использование иностранного слова при наличии утвержденного русского аналога',
+                    'explanation': 'Согласно ст. 6 закона № 168-ФЗ, рекомендуется использовать русский аналог вместо иностранного слова'
+                })
+                results['summary']['violation_count'] += count
             
             # Собираем категории
             for dict_name in dict_results.keys():
@@ -280,6 +281,17 @@ class LanguageChecker:
         }
 
         return common_foreign.get(word_lower, "Рассмотрите возможность использования русского термина")
+
+    def _is_mixed_language_word(self, word: str) -> bool:
+        """
+        Проверка, является ли слово гибридным (смесь кириллицы и латиницы)
+        
+        Returns:
+            True, если слово содержит и кириллические, и латинские символы
+        """
+        has_cyrillic = bool(re.search(r'[а-яёА-ЯЁ]', word))
+        has_latin = bool(re.search(r'[a-zA-Z]', word))
+        return has_cyrillic and has_latin
 
     def _check_normative_usage(self, word: str, context: str) -> bool:
         """

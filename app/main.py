@@ -47,12 +47,15 @@ templates = Jinja2Templates(directory="app/web/templates")
 
 # Глобальные менеджеры
 dictionaries_dir = Path(os.getenv('DICTIONARIES_DIR', 'dictionaries/data'))
-checker = LanguageChecker(dictionaries_dir)
-dict_manager = DictionaryManager(dictionaries_dir)
 synchronizer = DictionarySynchronizer(
     data_dir=dictionaries_dir,
     cache_dir=Path('sync/cache')
 )
+# Передаем метаданные синхронизации в DictionaryManager для отображения статуса
+dict_manager = DictionaryManager(dictionaries_dir, synchronizer.metadata)
+checker = LanguageChecker(dictionaries_dir)
+# Обновляем checker.dict_manager, чтобы он тоже имел доступ к метаданным
+checker.dict_manager = dict_manager
 
 
 @app.on_event("startup")

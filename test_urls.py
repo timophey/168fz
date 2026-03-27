@@ -9,6 +9,45 @@ from collections import Counter
 import re
 
 URLS = [
+    # IT/Tech сайты - максимальное количество английских терминов и аббревиатур
+    "https://habr.com/ru/feed/",
+    "https://habr.com/ru/companies/",
+    "https://vc.ru/",
+    "https://cnews.ru/",
+    "https://3dnews.ru/",
+    "https://www.ixbt.com/",
+    "https://tadviser.ru/",
+    
+    # Гейминг - английские названия игр, терминов, сленг
+    "https://stopgame.ru/",
+    "https://www.igromania.ru/",
+    "https://www.playground.ru/",
+    
+    # Бизнес/стартапы - англицизмы, жаргон, аббревиатуры
+    "https://rb.ru/",
+    "https://www.sostav.ru/",
+    "https://www.slideshare.net/ru/feed",
+    
+    # Соцсети и пользовательский контент - сленг, жаргон
+    "https://pikabu.ru/",
+    "https://dtf.ru/",
+    "https://tjournal.ru/",
+    
+    # Технические блоги и документация
+    "https://yandex.ru/dev/",
+    "https://developers.google.com/",
+    
+    # Новостные сайты с международной тематикой
+    "https://www.kommersant.ru/",
+    "https://www.rbc.ru/",
+    
+    # Специализированные ресурсы
+    "https://www.opennet.ru/",
+    "https://www.linux.org.ru/",
+    
+    # Маркетинг и реклама
+    "https://www.adindex.ru/",
+    "https://www.cossa.ru/",
 ]
 
 def test_url(url):
