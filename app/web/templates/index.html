@@ -131,6 +131,34 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Карточка разрешенных иностранных слов -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-globe"></i> Разрешенные иностранные слова</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="form-text small">
+                            Слова, которые не будут считаться нарушениями при проверке.
+                            Можно вводить через пробел или запятую.
+                        </p>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="allowedForeignInput" rows="6"
+                                placeholder="Например: online, offline, workflow, cache..."></textarea>
+                        </div>
+                        <div class="d-flex gap-2 mb-2">
+                            <button class="btn btn-outline-info btn-sm" onclick="loadAllowedForeign()">
+                                <i class="fas fa-sync"></i> Обновить из словаря
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="resetAllowedForeign()">
+                                <i class="fas fa-undo"></i> Сбросить
+                            </button>
+                        </div>
+                        <div class="small text-muted">
+                            <div id="allowedForeignStatus"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Боковая панель -->

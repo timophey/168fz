@@ -1,17 +1,29 @@
-// Глобальные переменные
+// Глобальные переменныя
 let currentReport = null;
 let reportFormat = 'table';
+let allowedForeignWords = []; // Текущий список разрешенных иностранных слов
 
 // Инициализация при загрузке страницы
 function init() {
     loadDictionariesStatus();
     loadSyncStatus();
     loadSources();
+    loadAllowedForeignFromLocalStorage();
+    loadAllowedForeign();
     
     // Слушатель изменения формата отчета
     document.getElementById('reportFormat').addEventListener('change', function(e) {
         reportFormat = e.target.value;
     });
+    
+    // Автосохранение при изменении поля allowedForeignInput
+    const allowedForeignInput = document.getElementById('allowedForeignInput');
+    if (allowedForeignInput) {
+        allowedForeignInput.addEventListener('input', function() {
+            saveAllowedForeignToLocalStorage();
+            updateAllowedForeignStatus();
+        });
+    }
 }
 
 // ==================== API CALLS ====================
@@ -62,6 +74,7 @@ async function checkText() {
     
     try {
         let data;
+        const allowedWords = getAllowedWords(); // Получаем разрешенные слова
         
         if (tabId === '#text-panel') {
             // Проверка текста
@@ -72,7 +85,7 @@ async function checkText() {
                 return;
             }
             
-            data = await apiCall('/api/v1/check', 'POST', { text });
+            data = await apiCall('/api/v1/check', 'POST', { text, allowed_words: allowedWords });
             
         } else if (tabId === '#url-panel') {
             // Проверка по URL
@@ -89,7 +102,7 @@ async function checkText() {
                 fullUrl = 'https://' + url;
             }
             
-            data = await apiCall('/api/v1/check', 'POST', { url: fullUrl });
+            data = await apiCall('/api/v1/check', 'POST', { url: fullUrl, allowed_words: allowedWords });
             
         } else if (tabId === '#file-panel') {
             // Проверка файла
@@ -103,6 +116,8 @@ async function checkText() {
             const file = fileInput.files[0];
             const formData = new FormData();
             formData.append('file', file);
+            // Для файлов тоже добавляем allowed_words в JSON части
+            formData.append('allowed_words', JSON.stringify(allowedWords));
             
             data = await apiCall('/api/v1/check/file', 'POST', formData, true);
         }
@@ -286,7 +301,8 @@ function displayDetailedResults(data) {
                     <span class="badge bg-success">OK</span> - слово соответствует нормам<br>
                     <span class="badge bg-danger">Запрещено</span> - ненормативная лексика (ст. 6.1)<br>
                     <span class="badge bg-warning text-dark">Иностранное</span> - рекомендуется заменить<br>
-                    <span class="badge bg-info text-dark">Нарушение</span> - некорректное употребление
+                    <span class="badge bg-info text-dark">Нарушение</span> - некорректное употребление<br>
+                    <span class="badge bg-secondary">Исключено</span> - слово в списке allowed_words (пользовательское исключение)
                 </small>
             </div>
         `;
@@ -427,7 +443,10 @@ function getStatusBadge(status) {
         'ok': '<span class="badge bg-success">OK</span>',
         'prohibited': '<span class="badge bg-danger">Запрещено</span>',
         'foreign': '<span class="badge bg-warning text-dark">Иностранное</span>',
-        'normative_violation': '<span class="badge bg-info text-dark">Нарушение</span>'
+        'normative_violation': '<span class="badge bg-info text-dark">Нарушение</span>',
+        'exempted': '<span class="badge bg-secondary">Исключено</span>',
+        'allowed': '<span class="badge bg-light text-dark">Разрешено</span>',
+        'foreign_with_alternative': '<span class="badge bg-warning text-dark">Иностранное (есть аналог)</span>'
     };
     return badges[status] || '<span class="badge bg-secondary">Неизвестно</span>';
 }
@@ -437,7 +456,10 @@ function getStatusTitle(status) {
         'ok': 'Соответствует нормам',
         'prohibited': 'Запрещенное слово',
         'foreign': 'Иностранное слово',
-        'normative_violation': 'Нарушение нормы'
+        'normative_violation': 'Нарушение нормы',
+        'exempted': 'Исключено пользователем',
+        'allowed': 'Разрешено (allowed_foreign)',
+        'foreign_with_alternative': 'Иностранное (есть русский аналог)'
     };
     return titles[status] || status;
 }
@@ -447,7 +469,10 @@ function getStatusRowClass(status) {
         'ok': '',
         'prohibited': 'table-danger',
         'foreign': 'table-warning',
-        'normative_violation': 'table-info'
+        'normative_violation': 'table-info',
+        'exempted': 'table-secondary',
+        'allowed': '',
+        'foreign_with_alternative': 'table-warning'
     };
     return classes[status] || '';
 }
@@ -824,6 +849,114 @@ function clearInput() {
     currentReport = null;
 }
 
+// ==================== ALLOWED FOREIGN WORDS ====================
+
+/**
+ * Парсинг текста из поля allowedForeignInput
+ * Поддерживает разделители: пробелы, запятые, точки с запятой, переносы строк
+ */
+function parseAllowedForeignInput(text) {
+    if (!text || !text.trim()) return [];
+    
+    // Разделяем по пробелам, запятым, точкам с запятой, переводам строк
+    const words = text.split(/[\s,;]+/).filter(w => w.trim().length > 0);
+    // Нормализуем: lowercase и убираем дубликаты
+    const normalized = [...new Set(words.map(w => w.trim().toLowerCase()))];
+    return normalized;
+}
+
+/**
+ * Загрузка разрешенных иностранных слов с сервера
+ */
+async function loadAllowedForeign() {
+    try {
+        const data = await apiCall('/api/v1/allowed-foreign');
+        allowedForeignWords = data.words || [];
+        
+        // НЕ перезаписываем текстовое поле, если пользователь уже ввел свои слова (есть в localStorage)
+        const textarea = document.getElementById('allowedForeignInput');
+        if (textarea) {
+            const hasCustom = localStorage.getItem('allowed_foreign_custom');
+            if (!hasCustom) {
+                // Только если нет пользовательских данных, заполняем из сервера
+                textarea.value = allowedForeignWords.join(', ');
+            }
+        }
+        
+        updateAllowedForeignStatus();
+        showAlert(`Загружено ${allowedForeignWords.length} разрешенных слов из словаря`, 'success');
+    } catch (error) {
+        // Ошибка уже показана в apiCall
+        console.error('Failed to load allowed foreign words:', error);
+    }
+}
+
+/**
+ * Обновление статуса под полем
+ */
+function updateAllowedForeignStatus() {
+    const statusDiv = document.getElementById('allowedForeignStatus');
+    const textarea = document.getElementById('allowedForeignInput');
+    const customWords = parseAllowedForeignInput(textarea ? textarea.value : '');
+    
+    if (statusDiv) {
+        statusDiv.innerHTML = `
+            <strong>Всего слов:</strong> ${customWords.length}
+            <span class="text-muted">(из сервера: ${allowedForeignWords.length})</span>
+        `;
+    }
+}
+
+/**
+ * Сохранение пользовательских разрешенных слов в localStorage
+ */
+function saveAllowedForeignToLocalStorage() {
+    const textarea = document.getElementById('allowedForeignInput');
+    if (textarea) {
+        localStorage.setItem('allowed_foreign_custom', textarea.value);
+    }
+}
+
+/**
+ * Загрузка пользовательских разрешенных слов из localStorage
+ */
+function loadAllowedForeignFromLocalStorage() {
+    const saved = localStorage.getItem('allowed_foreign_custom');
+    if (saved !== null) {
+        const textarea = document.getElementById('allowedForeignInput');
+        if (textarea) {
+            textarea.value = saved;
+        }
+    }
+}
+
+/**
+ * Сброс пользовательских разрешенных слов к значениям из словаря
+ */
+function resetAllowedForeign() {
+    if (!confirm('Сбросить пользовательские разрешенные слова к значениям из словаря? Это удалит все ваши правки.')) {
+        return;
+    }
+    
+    // Очищаем localStorage
+    localStorage.removeItem('allowed_foreign_custom');
+    
+    // Загружаем с сервера
+    loadAllowedForeign();
+    showAlert('Разрешенные слова сброшены к значениям из словаря', 'info');
+}
+
+/**
+ * Получение текущего списка разрешенных слов (пользовательские + из словаря)
+ */
+function getAllowedWords() {
+    const textarea = document.getElementById('allowedForeignInput');
+    const customWords = parseAllowedForeignInput(textarea ? textarea.value : '');
+    // Объединяем пользовательские слова с серверными, убираем дубликаты
+    const allWords = new Set([...allowedForeignWords, ...customWords]);
+    return [...allWords];
+}
+
 // Экспорт функций в глобальную область
 window.checkText = checkText;
 window.clearText = clearInput;
@@ -831,6 +964,9 @@ window.downloadReport = downloadReport;
 window.syncAll = syncAll;
 window.loadSyncStatus = loadSyncStatus;
 window.uploadDictionary = uploadDictionary;
+window.loadAllowedForeign = loadAllowedForeign;
+window.resetAllowedForeign = resetAllowedForeign;
+window.getAllowedWords = getAllowedWords;
 
 // Запуск инициализации (после определения всех функций)
 if (document.readyState === 'loading') {

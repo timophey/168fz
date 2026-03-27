@@ -78,8 +78,8 @@ class LanguageChecker:
         allowed_foreign = self.dict_manager.dictionaries.get('allowed_foreign', {}).get('words', set())
         
         # Добавляем дополнительные разрешенные слова из запроса
-        if allowed_words:
-            allowed_foreign = allowed_foreign.union(set(w.lower() for w in allowed_words))
+        user_allowed_words = set(w.lower() for w in allowed_words) if allowed_words else set()
+        all_allowed = allowed_foreign.union(user_allowed_words)
         
         # Проверяем каждую группу слов
         for word_lower, group in word_groups.items():
@@ -99,84 +99,90 @@ class LanguageChecker:
             # Проверяем наличие латинских букв в representative
             has_latin = re.search(r'[a-zA-Z]', representative) is not None
             
-            # 1. Запрещенные слова (высший приоритет)
-            is_prohibited = any(key in dict_name.lower()
-                               for dict_name in dict_results.keys()
-                               for key in ['запрещенные', 'ненормативная', 'обсценная', 'нецензурная'])
-            
-            if is_prohibited:
-                status = "prohibited"
-                first_dict = next((d for d in dict_results.keys() if any(k in d.lower() for k in ['запрещенные', 'ненормативная'])), None)
-                law_article = self._get_law_article(first_dict) if first_dict else 'Статья 6.1'
-                explanation = 'Запрещенное слово - требует немедленного удаления согласно ст. 6.1 закона'
-                results['checks']['prohibited_words'].append({
-                    'word': representative,
-                    'count': count,
-                    'dictionary': first_dict or list(dict_results.keys())[0],
-                    'law_article': law_article,
-                    'explanation': explanation
-                })
-                results['summary']['has_prohibited'] = True
-                results['summary']['violation_count'] += count
-                # Не продолжаем проверку для запрещенных слов
+            # 0. ПРИОРИТЕТ: Проверяем, находится ли слово в пользовательском списке исключений
+            # Это позволяет обойти любые другие проверки (включая запрещенные слова)
+            if word_lower in user_allowed_words:
+                status = "exempted"
+                explanation = 'Слово исключено из проверки пользователем (добавлено в allowed_words)'
+                # Не добавляем в prohibited_words или foreign_words, даже если оно там было бы
             else:
-                # Проверяем, является ли слово русским (находится в русских словарях, исключая явно иностранные)
-                is_russian = False
-                for dict_name in dict_results:
-                    dict_name_lower = dict_name.lower()
-                    # Пропускаем запрещенные словари
-                    if any(k in dict_name_lower for k in ['запрещенные', 'ненормативная', 'обсценная', 'нецензурная']):
-                        continue
-                    # Пропускаем явно иностранные словари
-                    if dict_name_lower in ['slovar_inostrannykh_slov', 'иностранные_слова', 'allowed_foreign']:
-                        continue
-                    # Пропускаем русские аналоги
-                    if 'русские_аналоги' in dict_name_lower:
-                        continue
-                    is_russian = True
-                    break
+                # 1. Запрещенные слова (высший приоритет после allowed_words)
+                is_prohibited = any(key in dict_name.lower()
+                                   for dict_name in dict_results.keys()
+                                   for key in ['запрещенные', 'ненормативная', 'обсценная', 'нецензурная'])
                 
-                if is_russian:
-                    status = "ok"
-                    explanation = 'Слово найдено в словаре русских слов'
-                    if word_lower in normative_dict:
-                        explanation = 'Слово соответствует нормативному словарю русского языка'
-                # 3. Проверяем иностранные слова с утвержденными русскими аналогами (ПЕРЕД allowed_foreign)
-                elif word_lower in russian_alternatives:
-                    status = "foreign_with_alternative"
-                    recommendation = self._suggest_russian_alternative(representative)
-                    explanation = f'Иностранное слово, но имеет утвержденный русский аналог: {recommendation}'
-                    results['checks']['foreign_words'].append({
+                if is_prohibited:
+                    status = "prohibited"
+                    first_dict = next((d for d in dict_results.keys() if any(k in d.lower() for k in ['запрещенные', 'ненормативная'])), None)
+                    law_article = self._get_law_article(first_dict) if first_dict else 'Статья 6.1'
+                    explanation = 'Запрещенное слово - требует немедленного удаления согласно ст. 6.1 закона'
+                    results['checks']['prohibited_words'].append({
                         'word': representative,
                         'count': count,
-                        'dictionary': 'русские_аналоги',
-                        'recommendation': recommendation,
-                        'has_alternative': True,
+                        'dictionary': first_dict or list(dict_results.keys())[0],
+                        'law_article': law_article,
                         'explanation': explanation
                     })
-                    results['summary']['has_foreign'] = True
-                # 4. Проверяем разрешенные иностранные слова (международные стандарты, собственные имена)
-                elif word_lower in allowed_foreign:
-                    status = "allowed"
-                    explanation = 'Слово является разрешенным иностранным термином (международный стандарт/собственное имя)'
-                    # Не добавляем в foreign_words, так как это разрешено
-                # 5. Проверяем другие иностранные слова (с латинскими буквами)
-                elif has_latin:
-                    status = "foreign"
-                    recommendation = self._suggest_russian_alternative(representative)
-                    explanation = 'Иностранное слово без установленного русского аналога. Рекомендуется заменить на русский эквивалент.'
-                    results['checks']['foreign_words'].append({
-                        'word': representative,
-                        'count': count,
-                        'dictionary': 'иностранные_слова',
-                        'recommendation': recommendation,
-                        'has_alternative': False,
-                        'explanation': explanation
-                    })
-                    results['summary']['has_foreign'] = True
+                    results['summary']['has_prohibited'] = True
+                    results['summary']['violation_count'] += count
                 else:
-                    status = "unknown"
-                    explanation = 'Слово не найдено ни в одном из загруженных словарей'
+                    # Проверяем, является ли слово русским (находится в русских словарях, исключая явно иностранные)
+                    is_russian = False
+                    for dict_name in dict_results:
+                        dict_name_lower = dict_name.lower()
+                        # Пропускаем запрещенные словари
+                        if any(k in dict_name_lower for k in ['запрещенные', 'ненормативная', 'обсценная', 'нецензурная']):
+                            continue
+                        # Пропускаем явно иностранные словари
+                        if dict_name_lower in ['slovar_inostrannykh_slov', 'иностранные_слова', 'allowed_foreign']:
+                            continue
+                        # Пропускаем русские аналоги
+                        if 'русские_аналоги' in dict_name_lower:
+                            continue
+                        is_russian = True
+                        break
+                    
+                    if is_russian:
+                        status = "ok"
+                        explanation = 'Слово найдено в словаре русских слов'
+                        if word_lower in normative_dict:
+                            explanation = 'Слово соответствует нормативному словарю русского языка'
+                    # 3. Проверяем иностранные слова с утвержденными русскими аналогами (ПЕРЕД allowed_foreign)
+                    elif word_lower in russian_alternatives:
+                        status = "foreign_with_alternative"
+                        recommendation = self._suggest_russian_alternative(representative)
+                        explanation = f'Иностранное слово, но имеет утвержденный русский аналог: {recommendation}'
+                        results['checks']['foreign_words'].append({
+                            'word': representative,
+                            'count': count,
+                            'dictionary': 'русские_аналоги',
+                            'recommendation': recommendation,
+                            'has_alternative': True,
+                            'explanation': explanation
+                        })
+                        results['summary']['has_foreign'] = True
+                    # 4. Проверяем разрешенные иностранные слова (международные стандарты, собственные имена)
+                    elif word_lower in allowed_foreign:
+                        status = "allowed"
+                        explanation = 'Слово является разрешенным иностранным термином (международный стандарт/собственное имя)'
+                        # Не добавляем в foreign_words, так как это разрешено
+                    # 5. Проверяем другие иностранные слова (с латинскими буквами)
+                    elif has_latin:
+                        status = "foreign"
+                        recommendation = self._suggest_russian_alternative(representative)
+                        explanation = 'Иностранное слово без установленного русского аналога. Рекомендуется заменить на русский эквивалент.'
+                        results['checks']['foreign_words'].append({
+                            'word': representative,
+                            'count': count,
+                            'dictionary': 'иностранные_слова',
+                            'recommendation': recommendation,
+                            'has_alternative': False,
+                            'explanation': explanation
+                        })
+                        results['summary']['has_foreign'] = True
+                    else:
+                        status = "unknown"
+                        explanation = 'Слово не найдено ни в одном из загруженных словарей'
             
             # Проверка нормативных нарушений по ст. 6 закона
             # Нарушение: использование иностранного слова, когда есть утвержденный русский аналог

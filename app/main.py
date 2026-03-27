@@ -3,11 +3,13 @@
 FastAPI микросервис для проверки текста на соответствие закону № 168-ФЗ
 """
 
+import json
 import os
 import re
 import tempfile
 from pathlib import Path
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
+from typing import List, Optional
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -157,7 +159,10 @@ async def check_text(request: Request):
 
 
 @app.post("/api/v1/check/file")
-async def check_file(file: UploadFile = File(...)):
+async def check_file(
+    file: UploadFile = File(...),
+    allowed_words: Optional[str] = Form(None)
+):
     """
     Проверка текста из загруженного файла
     
@@ -173,7 +178,7 @@ async def check_file(file: UploadFile = File(...)):
         
         if file_ext not in allowed_extensions:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Неподдерживаемый формат файла. Поддерживаются: {', '.join(allowed_extensions)}"
             )
         
@@ -193,8 +198,17 @@ async def check_file(file: UploadFile = File(...)):
             if not text.strip():
                 raise HTTPException(status_code=400, detail="Файл пустой или не содержит текста")
             
-            # Проверяем текст
-            results = checker.check_text(text)
+            # Парсим allowed_words если передано
+            allowed_words_list = None
+            if allowed_words:
+                try:
+                    allowed_words_list = json.loads(allowed_words)
+                except json.JSONDecodeError:
+                    # Если не валидный JSON, пробуем как строку с разделителями
+                    allowed_words_list = [w.strip() for w in allowed_words.replace(',', ' ').split() if w.strip()]
+            
+            # Проверяем текст с учетом разрешенных слов
+            results = checker.check_text(text, allowed_words=allowed_words_list)
             
             # Добавляем информацию о файле
             results['source_info'] = {
@@ -280,6 +294,28 @@ async def load_dictionary(request: Request):
         
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/allowed-foreign")
+async def get_allowed_foreign():
+    """Получение списка разрешенных иностранных слов"""
+    try:
+        # Получаем словарь allowed_foreign из dict_manager
+        allowed_foreign_dict = dict_manager.dictionaries.get('allowed_foreign', {})
+        words = list(allowed_foreign_dict.get('words', set()))
+        words.sort()  # Сортируем для удобства отображения
+        
+        return JSONResponse({
+            "success": True,
+            "data": {
+                "words": words,
+                "count": len(words),
+                "source": allowed_foreign_dict.get('source', 'unknown'),
+                "version": allowed_foreign_dict.get('version', '1.0')
+            }
+        })
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

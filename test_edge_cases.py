@@ -143,16 +143,16 @@ class TestEdgeCases(unittest.TestCase):
         self.assertIsNotNone(result)
     
     def test_allowed_foreign_words(self):
-        """Тест разрешенных иностранных слов"""
-        # Проверим, что слова из allowed_foreign имеют статус 'allowed'
-        # Нужно передать allowed_words параметр
+        """Тест разрешенных иностранных слов (пользовательские исключения)"""
+        # Проверим, что пользовательские слова из allowed_words имеют статус 'exempted'
+        # (изменено с 'allowed' для отдельного отображения пользовательских исключений)
         allowed = ["MyCompany", "ProductX"]
         result = self.checker.check_text("MyCompany ProductX", allowed_words=allowed)
         
         for word_data in result['all_words']:
             if word_data['word'] in allowed:
-                self.assertEqual(word_data['status'], 'allowed',
-                               f"Word '{word_data['word']}' should have status 'allowed'")
+                self.assertEqual(word_data['status'], 'exempted',
+                               f"Word '{word_data['word']}' should have status 'exempted'")
     
     def test_word_variations(self):
         """Тест учета вариантов слова (разный регистр)"""
