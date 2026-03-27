@@ -76,6 +76,7 @@ class DictionaryLoader:
         name = filepath.stem
         version = "1.0"
         source = "local"
+        category = None
 
         # Проверяем наличие файла с метаданными
         meta_file = filepath.with_suffix('.meta.json')
@@ -85,8 +86,19 @@ class DictionaryLoader:
                 name = meta.get('name', name)
                 version = meta.get('version', version)
                 source = meta.get('source', source)
+                category = meta.get('category')
 
-        return {
+        # Если это JSON файл, пытаемся извлечь category из его содержимого
+        if ext == '.json' and not category:
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict) and 'category' in data:
+                        category = data['category']
+            except:
+                pass
+
+        result = {
             'words': words,
             'name': name,
             'version': version,
@@ -94,3 +106,8 @@ class DictionaryLoader:
             'loaded_at': datetime.now().isoformat(),
             'filepath': str(filepath)
         }
+
+        if category:
+            result['category'] = category
+
+        return result

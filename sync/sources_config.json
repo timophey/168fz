@@ -1,9 +1,9 @@
 {
   "real_sources": [
     {
-      "name": "ru_words_github",
-      "official_name": "Список русских слов (GitHub)",
-      "description": "Открытый список русских слов из репозитория danakt/russian-words. Содержит ~200 000 слов.",
+      "name": "нормативный_словарь",
+      "official_name": "Список русских слов (GitHub) - полная версия",
+      "description": "Полный список русских слов из репозитория danakt/russian-words. Содержит ~1.5M слов.",
       "url": "https://github.com/danakt/russian-words",
       "format": "txt",
       "method": "download",
@@ -11,7 +11,7 @@
       "institution": "Сообщество (danakt)",
       "version": "2024",
       "last_updated": null,
-      "fallback_file": "dictionaries/data/нормативный_словарь.json",
+      "fallback_file": null,
       "download_url": "https://raw.githubusercontent.com/danakt/russian-words/master/russian.txt",
       "api_endpoint": null,
       "parser": "github"
@@ -49,38 +49,6 @@
       "parser": "opencorpora"
     },
     {
-      "name": "foreign_words_github",
-      "official_name": "Словарь иностранных слов (GitHub)",
-      "description": "Открытый список иностранных слов, используемых в русском языке.",
-      "url": "https://github.com/ikimrus/foreign-words",
-      "format": "json",
-      "method": "download",
-      "license": "MIT",
-      "institution": "Сообщество",
-      "version": "2024",
-      "last_updated": null,
-      "fallback_file": "dictionaries/data/иностранные_слова.json",
-      "download_url": "https://raw.githubusercontent.com/ikimrus/foreign-words/master/foreign-words.json",
-      "api_endpoint": null,
-      "parser": "json"
-    },
-    {
-      "name": "obscene_github",
-      "official_name": "Список обсценной лексики (GitHub)",
-      "description": "Открытый список русских нецензурных слов (для исследовательских целей).",
-      "url": "https://github.com/LTD-Beget/badwords",
-      "format": "txt",
-      "method": "download",
-      "license": "MIT",
-      "institution": "Сообщество",
-      "version": "2024",
-      "last_updated": null,
-      "fallback_file": "dictionaries/data/запрещенные_слова.json",
-      "download_url": "https://raw.githubusercontent.com/LTD-Beget/badwords/master/russian.txt",
-      "api_endpoint": null,
-      "parser": "txt"
-    },
-    {
       "name": "thesaurus_github",
       "official_name": "Русский тезаурус (GitHub)",
       "description": "Открытый тезаурус русского языка с синонимами и антонимами.",
@@ -97,20 +65,68 @@
       "parser": "json"
     },
     {
-      "name": "hunspell_en",
-      "official_name": "Hunspell словарь английского языка",
-      "description": "Словарь английских слов для проверки иностранной лексики.",
-      "url": "https://github.com/LibreOffice/dictionaries",
-      "format": "dic",
-      "method": "download",
-      "license": "MPL/LGPL",
-      "institution": "Сообщество LibreOffice",
-      "version": "2024",
+      "name": "сокращения_аббревиатуры",
+      "official_name": "Словарь сокращений и аббревиатур",
+      "description": "Словарь сокращений и аббревиатур (IT, бизнес, гос. структуры). Локальный словарь.",
+      "url": "",
+      "format": "json",
+      "method": "local",
+      "license": "демо",
+      "institution": "Локальный",
+      "version": "1.0",
       "last_updated": null,
-      "fallback_file": "dictionaries/data/иностранные_слова.json",
-      "download_url": "https://raw.githubusercontent.com/LibreOffice/dictionaries/master/en_US/en_US.dic",
+      "fallback_file": "dictionaries/data/сокращения_аббревиатуры.json",
+      "download_url": null,
       "api_endpoint": null,
-      "parser": "hunspell"
+      "parser": null
+    },
+    {
+      "name": "технические_термины",
+      "official_name": "Словарь технических терминов",
+      "description": "Словарь технических терминов (IT, программирование, сети, базы данных). Локальный словарь.",
+      "url": "",
+      "format": "json",
+      "method": "local",
+      "license": "демо",
+      "institution": "Локальный",
+      "version": "1.0",
+      "last_updated": null,
+      "fallback_file": "dictionaries/data/технические_термины.json",
+      "download_url": null,
+      "api_endpoint": null,
+      "parser": null
+    },
+    {
+      "name": "профессионализмы_жаргон",
+      "official_name": "Словарь профессионализмов и жаргона",
+      "description": "Словарь профессионального жаргона и сленга (IT, бизнес, медицина, право). Локальный словарь.",
+      "url": "",
+      "format": "json",
+      "method": "local",
+      "license": "демо",
+      "institution": "Локальный",
+      "version": "1.0",
+      "last_updated": null,
+      "fallback_file": "dictionaries/data/профессионализмы_жаргон.json",
+      "download_url": null,
+      "api_endpoint": null,
+      "parser": null
+    },
+    {
+      "name": "топонимы",
+      "official_name": "Словарь топонимов",
+      "description": "Словарь географических названий (страны, города, регионы, водные объекты). Локальный словарь.",
+      "url": "",
+      "format": "json",
+      "method": "local",
+      "license": "демо",
+      "institution": "Локальный",
+      "version": "1.0",
+      "last_updated": null,
+      "fallback_file": "dictionaries/data/топонимы.json",
+      "download_url": null,
+      "api_endpoint": null,
+      "parser": null
     }
   ],
   "legacy_sources": [
@@ -148,5 +164,5 @@
     }
   ],
   "last_updated": null,
-  "note": "Конфигурация источников словарей. Реальные источники работают автоматически, legacy требуют ручной настройки."
+  "note": "Конфигурация источников словарей. Реальные источники работают автоматически, legacy требуют ручной настройки. Локальные словари (method=local) не синхронизируются, а используются напрямую из fallback файлов."
 }

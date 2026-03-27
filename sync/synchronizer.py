@@ -28,6 +28,15 @@ from dictionaries.loader import DictionaryLoader
 class DictionarySynchronizer:
     """Синхронизация словарей с официальными источниками"""
 
+    # Маппинг старых имен файлов на новые (для совместимости метаданных)
+    NAME_MAPPING = {
+        'ru_words_github': 'нормативный_словарь',
+        'foreign_words_github': 'иностранные_слова',
+        'obscene_github': 'запрещенные_слова',
+        'hunspell_en': 'allowed_foreign',
+        'inostrannye_slova': 'иностранные_слова',  # старый вариант
+    }
+
     def __init__(
         self,
         data_dir: Path = Path('dictionaries/data'),
@@ -52,6 +61,7 @@ class DictionarySynchronizer:
         # Файл метаданных синхронизации
         self.metadata_file = self.cache_dir / 'sync_metadata.json'
         self.metadata = self._load_metadata()
+        self._migrate_metadata()
 
     def _load_metadata(self) -> Dict:
         """Загрузка метаданных синхронизации"""
@@ -59,6 +69,17 @@ class DictionarySynchronizer:
             with open(self.metadata_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
         return {'dictionaries': {}, 'last_full_sync': None}
+
+    def _migrate_metadata(self):
+        """Миграция метаданных - обновление имен словарей после переименования"""
+        if 'dictionaries' in self.metadata:
+            migrated = {}
+            for old_name, meta in self.metadata['dictionaries'].items():
+                # Если старое имя есть в маппинге, используем новое
+                new_name = self.NAME_MAPPING.get(old_name, old_name)
+                migrated[new_name] = meta
+            self.metadata['dictionaries'] = migrated
+            self._save_metadata()
 
     def _save_metadata(self):
         """Сохранение метаданных синхронизации"""
@@ -72,6 +93,10 @@ class DictionarySynchronizer:
         Returns:
             True, если словарь нужно обновить
         """
+        # Локальные словари не требуют синхронизации
+        if source.method == 'local':
+            return False
+
         # Если словарь еще не синхронизирован
         if dict_name not in self.metadata['dictionaries']:
             return True
@@ -135,15 +160,29 @@ class DictionarySynchronizer:
         print(f"Институт: {source.institution}")
 
         try:
-            # Загрузка словаря в зависимости от формата
-            words = self._download_dictionary(source)
+            words = []
 
-            # Если не удалось загрузить с официального источника, пробуем fallback
-            if not words and source.fallback_file:
-                fallback_path = Path(source.fallback_file)
-                if fallback_path.exists():
-                    print(f"Используем fallback: {fallback_path}")
-                    words = self._load_fallback_dictionary(fallback_path)
+            # Обработка локальных словарей (method='local')
+            if source.method == 'local':
+                if source.fallback_file:
+                    fallback_path = Path(source.fallback_file)
+                    if fallback_path.exists():
+                        print(f"Используем локальный файл: {fallback_path}")
+                        words = self._load_fallback_dictionary(fallback_path)
+                    else:
+                        return False, f"Локальный файл не найден: {fallback_path}"
+                else:
+                    return False, "Для локального словаря не указан fallback_file"
+            else:
+                # Загрузка словаря в зависимости от формата
+                words = self._download_dictionary(source)
+
+                # Если не удалось загрузить с официального источника, пробуем fallback
+                if not words and source.fallback_file:
+                    fallback_path = Path(source.fallback_file)
+                    if fallback_path.exists():
+                        print(f"Используем fallback: {fallback_path}")
+                        words = self._load_fallback_dictionary(fallback_path)
 
             if not words:
                 return False, "Не удалось извлечь слова из источника (даже с fallback)"

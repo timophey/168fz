@@ -2,6 +2,7 @@
 Менеджер словарей - управление загрузкой и проверкой слов
 """
 
+import json
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 from .loader import DictionaryLoader
@@ -10,15 +11,27 @@ from .loader import DictionaryLoader
 class DictionaryManager:
     """Управление словарями и проверка слов"""
 
-    def __init__(self, dictionaries_dir: Path = None):
+    def __init__(self, dictionaries_dir: Path = None, sync_metadata: Dict = None, category_mapping_file: Path = None):
         """
         Инициализация менеджера словарей
 
         Args:
             dictionaries_dir: Путь к папке со словарями
+            sync_metadata: Метаданные синхронизации от DictionarySynchronizer
+            category_mapping_file: Путь к файлу с маппингом словарей → категорий
         """
         self.dictionaries_dir = dictionaries_dir or Path('dictionaries/data')
         self.dictionaries: Dict[str, Dict] = {}
+        self.sync_metadata = sync_metadata or {}
+        self.category_mapping: Dict[str, str] = {}
+
+        # Загружаем маппинг категорий из файла
+        mapping_path = category_mapping_file if category_mapping_file else Path('dictionaries/category_mapping.json')
+        if mapping_path.exists():
+            with open(mapping_path, 'r', encoding='utf-8') as f:
+                self.category_mapping = json.load(f)
+                print(f"Загружен маппинг категорий: {len(self.category_mapping)} записей")
+
         self._load_default_dictionaries()
 
     def _load_default_dictionaries(self):
@@ -52,17 +65,76 @@ class DictionaryManager:
         return self.dictionaries.get(name, {})
 
     def list_dictionaries(self) -> List[Dict]:
-        """Список всех загруженных словарей"""
-        return [
-            {
+        """Список всех загруженных словарей с статусом и категорией"""
+        result = []
+        for name, data in self.dictionaries.items():
+            status = self._get_dictionary_status(name)
+            category = self.get_dictionary_category(name)
+            info = {
                 'name': name,
                 'words_count': len(data['words']),
-                'version': data['version'],
-                'source': data['source'],
-                'loaded_at': data['loaded_at']
+                'version': data.get('version', '1.0'),
+                'source': data.get('source', 'local'),
+                'loaded_at': data.get('loaded_at'),
+                'status': status,
+                'category': category
             }
-            for name, data in self.dictionaries.items()
-        ]
+            result.append(info)
+        return result
+
+    def get_dictionary_info(self, name: str) -> Dict:
+        """Получение информации о словаре с статусом и категорией"""
+        info = self.dictionaries.get(name, {})
+        if info:
+            return {
+                'name': name,
+                'words_count': len(info['words']),
+                'version': info.get('version', '1.0'),
+                'source': info.get('source', 'local'),
+                'loaded_at': info.get('loaded_at'),
+                'status': self._get_dictionary_status(name),
+                'category': self.get_dictionary_category(name),
+                'description': info.get('description', '')
+            }
+        return {}
+
+    def _get_dictionary_status(self, name: str) -> str:
+        """
+        Определение статуса словаря
+        
+        Returns:
+            - 'synced': словарь был синхронизирован через синхронизатор
+            - 'local': словарь загружен из локального файла (демо/ручная загрузка)
+        """
+        # Проверяем, был ли словарь синхронизирован (есть в метаданных)
+        if self.sync_metadata and 'dictionaries' in self.sync_metadata:
+            if name in self.sync_metadata['dictionaries']:
+                return 'synced'
+        # Если нет в метаданных, но файл существует - локальный
+        return 'local'
+
+    def get_dictionary_category(self, name: str) -> str:
+        """
+        Получение категории словаря
+        
+        Returns:
+            Категория словаря (из метаданных, маппинга или автоматическая классификация)
+        """
+        if name not in self.dictionaries:
+            return 'Неизвестный словарь'
+
+        dict_data = self.dictionaries[name]
+
+        # 1. Проверяем поле category в метаданных словаря
+        if 'category' in dict_data:
+            return dict_data['category']
+
+        # 2. Проверяем конфиг-маппинг
+        if name in self.category_mapping:
+            return self.category_mapping[name]
+
+        # 3. Используем автоматическую классификацию по названию
+        return self._categorize_dictionary(name)
 
     def check_word(self, word: str) -> Dict[str, List[str]]:
         """
@@ -97,6 +169,7 @@ class DictionaryManager:
             'total_words': len(words),
             'unique_words': len(unique_words),
             'dictionaries': {},
+            'categories': {},
             'problematic_words': []
         }
 
@@ -114,34 +187,48 @@ class DictionaryManager:
                         'count': sum(1 for w in words if w.lower() == word)
                     })
 
+                    # Получаем категорию словаря
+                    category = self.get_dictionary_category(dict_name)
+
+                    # Добавляем в категорию
+                    if category not in results['categories']:
+                        results['categories'][category] = []
+                    results['categories'][category].append({
+                        'word': word,
+                        'dictionary': dict_name,
+                        'count': sum(1 for w in words if w.lower() == word)
+                    })
+
                     # Если это словарь запрещенных слов или ненормативной лексики
                     if any(key in dict_name.lower() for key in ['запрещенные', 'ненормативная', 'мат']):
                         results['problematic_words'].append({
                             'word': word,
                             'dictionary': dict_name,
+                            'category': category,
                             'count': sum(1 for w in words if w.lower() == word)
                         })
 
         return results
 
-    def get_word_status(self, word: str) -> List[Tuple[str, str]]:
+    def get_word_status(self, word: str) -> List[Tuple[str, str, str]]:
         """
         Получение статуса слова
 
         Returns:
-            Список кортежей (dictionary_name, category)
+            Список кортежей (dictionary_name, category, status)
         """
         results = self.check_word(word)
         status = []
 
         for dict_name in results.keys():
-            category = self._categorize_dictionary(dict_name)
-            status.append((dict_name, category))
+            category = self.get_dictionary_category(dict_name)
+            dict_status = self._get_dictionary_status(dict_name)
+            status.append((dict_name, category, dict_status))
 
         return status
 
     def _categorize_dictionary(self, name: str) -> str:
-        """Категоризация словаря по его названию"""
+        """Категоризация словаря по его названию (fallback)"""
         name_lower = name.lower()
 
         if any(k in name_lower for k in ['запрещенные', 'ненормативная', 'обсценная', 'нецензурная']):
@@ -154,5 +241,11 @@ class DictionaryManager:
             return 'Нормативные слова'
         elif any(k in name_lower for k in ['термины', 'профессионализмы']):
             return 'Термины'
+        elif 'сокращения' in name_lower or 'аббревиатуры' in name_lower:
+            return 'Аббревиатуры'
+        elif 'топонимы' in name_lower:
+            return 'Топонимы'
+        elif 'жаргон' in name_lower or 'профессионализмы' in name_lower:
+            return 'Профессионализмы и жаргон'
         else:
             return 'Другие словари'

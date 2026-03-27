@@ -59,11 +59,11 @@ class DictionarySource:
 # ============================================================================
 
 OFFICIAL_DICTIONARIES: Dict[str, DictionarySource] = {
-    # 1. Русские слова - GitHub (открытый источник)
-    'ru_words_github': DictionarySource(
-        name='ru_words_github',
-        official_name='Список русских слов (GitHub)',
-        description='Открытый список русских слов из репозитория danakt/russian-words. Содержит ~200 000 слов.',
+    # 1. Нормативный словарь русского языка (полная версия)
+    'нормативный_словарь': DictionarySource(
+        name='нормативный_словарь',
+        official_name='Список русских слов (GitHub) - полная версия',
+        description='Полный список русских слов из репозитория danakt/russian-words. Содержит ~1.5M слов.',
         url='https://github.com/danakt/russian-words',
         format='txt',
         method='download',
@@ -71,11 +71,11 @@ OFFICIAL_DICTIONARIES: Dict[str, DictionarySource] = {
         institution='Сообщество (danakt)',
         version='2024',
         download_url='https://raw.githubusercontent.com/danakt/russian-words/master/russian.txt',
-        fallback_file='dictionaries/data/нормативный_словарь.json',
+        fallback_file=None,
         parser='github'
     ),
 
-    # 2. Словарь Hunspell (используется в LibreOffice, Firefox)
+    # 2. Словарь Hunspell (дополнительный источник русских слов)
     'hunspell_ru': DictionarySource(
         name='hunspell_ru',
         official_name='Hunspell словарь русского языка',
@@ -91,7 +91,7 @@ OFFICIAL_DICTIONARIES: Dict[str, DictionarySource] = {
         parser='hunspell'
     ),
 
-    # 3. OpenCorpora - открытый корпус
+    # 3. OpenCorpora - открытый корпус (дополнительный источник)
     'opencorpora': DictionarySource(
         name='opencorpora',
         official_name='OpenCorpora словарь',
@@ -107,39 +107,7 @@ OFFICIAL_DICTIONARIES: Dict[str, DictionarySource] = {
         parser='opencorpora'
     ),
 
-    # 4. Словарь иностранных слов - GitHub
-    'foreign_words_github': DictionarySource(
-        name='foreign_words_github',
-        official_name='Словарь иностранных слов (GitHub)',
-        description='Открытый список иностранных слов, используемых в русском языке.',
-        url='https://github.com/ikimrus/foreign-words',
-        format='json',
-        method='download',
-        license='MIT',
-        institution='Сообщество',
-        version='2024',
-        download_url='https://raw.githubusercontent.com/ikimrus/foreign-words/master/foreign-words.json',
-        fallback_file='dictionaries/data/иностранные_слова.json',
-        parser='json'
-    ),
-
-    # 5. Список обсценной лексики (исследовательский)
-    'obscene_github': DictionarySource(
-        name='obscene_github',
-        official_name='Список обсценной лексики (GitHub)',
-        description='Открытый список русских нецензурных слов (для исследовательских целей).',
-        url='https://github.com/LTD-Beget/badwords',
-        format='txt',
-        method='download',
-        license='MIT',
-        institution='Сообщество',
-        version='2024',
-        download_url='https://raw.githubusercontent.com/LTD-Beget/badwords/master/russian.txt',
-        fallback_file='dictionaries/data/запрещенные_слова.json',
-        parser='txt'
-    ),
-
-    # 6. Русский тезаурус (синонимы)
+    # 4. Русский тезаурус (синонимы) - опционально
     'thesaurus_github': DictionarySource(
         name='thesaurus_github',
         official_name='Русский тезаурус (GitHub)',
@@ -155,20 +123,60 @@ OFFICIAL_DICTIONARIES: Dict[str, DictionarySource] = {
         parser='json'
     ),
 
-    # 7. Hunspell для иностранных слов (дополнительно)
-    'hunspell_en': DictionarySource(
-        name='hunspell_en',
-        official_name='Hunspell словарь английского языка',
-        description='Словарь английских слов для проверки иностранной лексики.',
-        url='https://github.com/LibreOffice/dictionaries',
-        format='dic',
-        method='download',
-        license='MPL/LGPL',
-        institution='Сообщество LibreOffice',
-        version='2024',
-        download_url='https://raw.githubusercontent.com/LibreOffice/dictionaries/master/en_US/en_US.dic',
-        fallback_file='dictionaries/data/иностранные_слова.json',
-        parser='hunspell'
+    # 5. Словарь сокращений и аббревиатур
+    'сокращения_аббревиатуры': DictionarySource(
+        name='сокращения_аббревиатуры',
+        official_name='Словарь сокращений и аббревиатур',
+        description='Словарь сокращений и аббревиатур (IT, бизнес, гос. структуры). Локальный словарь.',
+        url='',
+        format='json',
+        method='local',
+        license='демо',
+        institution='Локальный',
+        version='1.0',
+        fallback_file='dictionaries/data/сокращения_аббревиатуры.json'
+    ),
+
+    # 6. Словарь технических терминов
+    'технические_термины': DictionarySource(
+        name='технические_термины',
+        official_name='Словарь технических терминов',
+        description='Словарь технических терминов (IT, программирование, сети, базы данных). Локальный словарь.',
+        url='',
+        format='json',
+        method='local',
+        license='демо',
+        institution='Локальный',
+        version='1.0',
+        fallback_file='dictionaries/data/технические_термины.json'
+    ),
+
+    # 7. Словарь профессионализмов и жаргона
+    'профессионализмы_жаргон': DictionarySource(
+        name='профессионализмы_жаргон',
+        official_name='Словарь профессионализмов и жаргона',
+        description='Словарь профессионального жаргона и сленга (IT, бизнес, медицина, право). Локальный словарь.',
+        url='',
+        format='json',
+        method='local',
+        license='демо',
+        institution='Локальный',
+        version='1.0',
+        fallback_file='dictionaries/data/профессионализмы_жаргон.json'
+    ),
+
+    # 8. Словарь топонимов
+    'топонимы': DictionarySource(
+        name='топонимы',
+        official_name='Словарь топонимов',
+        description='Словарь географических названий (страны, города, регионы, водные объекты). Локальный словарь.',
+        url='',
+        format='json',
+        method='local',
+        license='демо',
+        institution='Локальный',
+        version='1.0',
+        fallback_file='dictionaries/data/топонимы.json'
     ),
 }
 
