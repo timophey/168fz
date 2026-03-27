@@ -93,9 +93,9 @@ class DictionarySynchronizer:
         Returns:
             True, если словарь нужно обновить
         """
-        # Локальные словари не требуют синхронизации
+        # Локальные словари требуют создания метаданных при первом запуске
         if source.method == 'local':
-            return False
+            return dict_name not in self.metadata['dictionaries']
 
         # Если словарь еще не синхронизирован
         if dict_name not in self.metadata['dictionaries']:
