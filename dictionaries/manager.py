@@ -106,6 +106,7 @@ class DictionaryManager:
         for name, data in self.dictionaries.items():
             status = self._get_dictionary_status(name)
             category = self.get_dictionary_category(name)
+            category_code = self.get_category_code(category)
             info = {
                 'name': name,
                 'words_count': len(data['words']),
@@ -113,7 +114,8 @@ class DictionaryManager:
                 'source': data.get('source', 'local'),
                 'loaded_at': data.get('loaded_at'),
                 'status': status,
-                'category': category
+                'category': category,
+                'category_code': category_code
             }
             result.append(info)
         return result
@@ -122,6 +124,8 @@ class DictionaryManager:
         """Получение информации о словаре с статусом и категорией"""
         info = self.dictionaries.get(name, {})
         if info:
+            category = self.get_dictionary_category(name)
+            category_code = self.get_category_code(category)
             return {
                 'name': name,
                 'words_count': len(info['words']),
@@ -129,7 +133,8 @@ class DictionaryManager:
                 'source': info.get('source', 'local'),
                 'loaded_at': info.get('loaded_at'),
                 'status': self._get_dictionary_status(name),
-                'category': self.get_dictionary_category(name),
+                'category': category,
+                'category_code': category_code,
                 'description': info.get('description', '')
             }
         return {}
@@ -171,6 +176,26 @@ class DictionaryManager:
 
         # 3. Используем автоматическую классификацию по названию
         return self._categorize_dictionary(name)
+
+    def get_category_code(self, category_name: str) -> str:
+        """
+        Получение кода категории по её русскому названию
+        
+        Args:
+            category_name: русское название категории (например, "Нормативные слова")
+            
+        Returns:
+            Код категории на латинице (например, "normative") или slug от названия если код не задан
+        """
+        # Проверяем, есть ли код в маппинге категорий
+        if 'categories' in self.category_mapping:
+            cat_info = self.category_mapping['categories'].get(category_name, {})
+            if 'code' in cat_info:
+                return cat_info['code']
+        
+        # Fallback: создаем slug из названия
+        slug = category_name.lower().replace(' ', '_').replace('и', '').replace('(', '').replace(')', '').replace(',', '').replace('.', '').replace('!', '').replace('?', '')
+        return slug
 
     def check_word(self, word: str, dictionary_names: List[str] = None) -> Dict[str, List[str]]:
         """

@@ -14,51 +14,61 @@
   "hunspell_ru": "Нормативные слова",
   "categories": {
     "Запрещенные слова": {
+      "code": "prohibited",
       "color": "danger",
       "icon": "fa-skull-crossbones",
       "description": "Слова, запрещенные ст. 6.1 ФЗ-168"
     },
     "Иностранные слова": {
+      "code": "foreign",
       "color": "warning",
       "icon": "fa-language",
       "description": "Иностранные слова без русского аналога (ст. 6)"
     },
     "Разрешенные иностранные термины": {
+      "code": "allowed_foreign",
       "color": "info",
       "icon": "fa-check-circle",
       "description": "Иностранные термины, разрешенные к использованию"
     },
     "Нормативные слова": {
+      "code": "normative",
       "color": "success",
       "icon": "fa-book",
       "description": "Стандартные русские слова"
     },
     "Технические термины": {
+      "code": "technical",
       "color": "purple",
       "icon": "fa-code",
       "description": "IT и технические термины"
     },
     "Топонимы": {
+      "code": "toponyms",
       "color": "teal",
       "icon": "fa-map-marker-alt",
       "description": "Географические названия"
     },
     "Аббревиатуры": {
+      "code": "abbreviations",
       "color": "orange",
       "icon": "fa-abbr",
       "description": "Сокращения и аббревиатуры"
     },
     "Профессионализмы и жаргон": {
+      "code": "slang",
       "color": "pink",
       "icon": "fa-users",
       "description": "Профессиональный сленг"
     },
     "Термины": {
+      "code": "terms",
       "color": "secondary",
       "icon": "fa-thesaurus",
       "description": "Лингвистические ресурсы и тезаурус"
     },
     "Другие словари": {
+      "code": "other",
       "color": "light",
       "icon": "fa-folder",
       "description": "Прочие словари"

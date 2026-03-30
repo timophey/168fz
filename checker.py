@@ -212,11 +212,16 @@ class LanguageChecker:
                 category = self.dict_manager._categorize_dictionary(dict_name)
                 categories.append(category)
             
+            # Получаем коды категорий
+            unique_categories = set(categories) if categories else set()
+            category_codes = [self.dict_manager.get_category_code(cat) for cat in unique_categories] if unique_categories else ['unknown']
+            
             # Создаем запись для all_words
             word_data = {
                 "word": representative,
                 "status": status,
-                "categories": list(set(categories)) if categories else ['Неизвестно'],
+                "categories": list(unique_categories) if unique_categories else ['Неизвестно'],
+                "category_codes": category_codes,
                 "dictionaries": list(set(dictionaries)) if dictionaries else [],
                 "law_article": law_article,
                 "recommendation": recommendation,
