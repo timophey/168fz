@@ -43,7 +43,7 @@
       "institution": "OpenCorpora",
       "version": "2024",
       "last_updated": null,
-      "fallback_file": "dictionaries/data/нормативный_словарь.json",
+      "fallback_file": null,
       "download_url": "https://opencorpora.org/files/export/opencorpora-export.zip",
       "api_endpoint": null,
       "parser": "opencorpora"
@@ -59,7 +59,7 @@
       "institution": "Сообщество",
       "version": "2024",
       "last_updated": null,
-      "fallback_file": "dictionaries/data/нормативный_словарь.json",
+      "fallback_file": null,
       "download_url": "https://raw.githubusercontent.com/akutuzov/ru_thesaurus/master/ru_thesaurus.json",
       "api_endpoint": null,
       "parser": "json"

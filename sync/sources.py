@@ -103,7 +103,7 @@ OFFICIAL_DICTIONARIES: Dict[str, DictionarySource] = {
         institution='OpenCorpora',
         version='2024',
         download_url='https://opencorpora.org/files/export/opencorpora-export.zip',
-        fallback_file='dictionaries/data/нормативный_словарь.json',
+        fallback_file=None,
         parser='opencorpora'
     ),
 
@@ -119,7 +119,7 @@ OFFICIAL_DICTIONARIES: Dict[str, DictionarySource] = {
         institution='Сообщество',
         version='2024',
         download_url='https://raw.githubusercontent.com/akutuzov/ru_thesaurus/master/ru_thesaurus.json',
-        fallback_file='dictionaries/data/нормативный_словарь.json',
+        fallback_file=None,
         parser='json'
     ),
 
