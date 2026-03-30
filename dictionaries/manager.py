@@ -207,8 +207,9 @@ class DictionaryManager:
         """
         import re
 
-        # Извлекаем слова (только кириллица, дефисы и апострофы)
-        words = re.findall(r'[а-яё\-А-ЯЁ\']+', text)
+        # Извлекаем слова, состоящие из букв. Дефисы и апострофы допускаются только внутри слова.
+        pattern = r'\b[a-zA-Zа-яёА-ЯЁ]+(?:[\'-][a-zA-Zа-яёА-ЯЁ]+)*\b'
+        words = re.findall(pattern, text)
         unique_words = set(w.lower() for w in words)
 
         results = {

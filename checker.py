@@ -239,10 +239,12 @@ class LanguageChecker:
 
     def _extract_words(self, text: str) -> List[str]:
         """Извлечение слов из текста"""
-        # Извлекаем слова кириллицей и латиницей, включая дефисы и апострофы
-        pattern = r'[а-яёА-ЯЁ\-a-zA-Z\']+'
+        # Извлекаем слова, состоящие из букв. Дефисы и апострофы допускаются только внутри слова.
+        # Паттерн: начинается с буквы, затем может содержать буквы, дефисы и апострофы,
+        # и заканчивается буквой. Это исключает дефисы/апострофы в начале и конце.
+        pattern = r'\b[a-zA-Zа-яёА-ЯЁ]+(?:[\'-][a-zA-Zа-яёА-ЯЁ]+)*\b'
         words = re.findall(pattern, text)
-        return [w for w in words if len(w) > 1 or w.isalpha()]
+        return words
 
     def _check_russian_alternative(self, foreign_word: str) -> bool:
         """Проверка наличия русского аналога"""
