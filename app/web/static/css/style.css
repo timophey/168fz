@@ -500,6 +500,66 @@ body {
     border-radius: 4px;
 }
 
+/* Documentation card styling */
+.card.bg-light {
+    background-color: #f8f9fa !important;
+}
+
+.doc-table th {
+    background-color: #e9ecef !important;
+    font-weight: 600;
+}
+
+.doc-table td {
+    vertical-align: middle;
+}
+
+.doc-example-card {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.doc-example-card .card-header {
+    font-weight: 600;
+    padding: 10px 16px;
+}
+
+.doc-example-card .card-body {
+    padding: 16px;
+}
+
+/* Responsive adjustments for documentation */
+@media (max-width: 768px) {
+    .doc-table thead {
+        display: none;
+    }
+    
+    .doc-table tbody tr {
+        display: block;
+        margin-bottom: 16px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 12px;
+    }
+    
+    .doc-table tbody td {
+        display: block;
+        padding: 8px 0;
+        border: none;
+        position: relative;
+        padding-left: 40%;
+    }
+    
+    .doc-table tbody td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 35%;
+        font-weight: 600;
+        color: #495057;
+    }
+}
+
 #dictionaryWordsModal .dictionary-stats {
     display: flex;
     gap: 20px;

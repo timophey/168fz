@@ -226,6 +226,247 @@
         </div>
     </div>
 
+    <!-- Документация по категориям словарей (полноширинная секция) -->
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light text-dark">
+                        <h5 class="mb-0"><i class="fas fa-question-circle"></i> Как работают словари и категории</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Важно:</strong> Эта документация предназначена для администраторов и пользователей.
+                            Здесь объясняется, как устроена система проверки текста на соответствие 168-ФЗ.
+                        </div>
+                        
+                        <h6>Общая принцип работы</h6>
+                        <p>
+                            Система проверяет текст на наличие иностранных слов и терминов, сравнивая его со всеми загруженными словарями.
+                            Каждое слово в тексте проверяется против всех словарей. Если слово найдено в каком-либо словаре,
+                            система определяет его категорию и статус, что влияет на итоговую оценку соответствия требованиям 168-ФЗ.
+                        </p>
+                        
+                        <h6>Категории словарей и их значение</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered doc-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 20%;">Категория</th>
+                                        <th style="width: 15%;">Цвет</th>
+                                        <th>Значение и влияние на проверку</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td data-label="Категория"><span class="badge bg-danger">Запрещенные слова</span></td>
+                                        <td data-label="Цвет"><span class="badge bg-danger">Красный</span></td>
+                                        <td data-label="Значение">
+                                            <strong>Слова, запрещенные к использованию</strong> согласно ст. 6.1 ФЗ-168.
+                                            Наличие таких слов в тексте является <strong>нарушением</strong>.
+                                            Пример: ненормативная лексика, обсценная лексика.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-label="Категория"><span class="badge bg-warning text-dark">Иностранные слова</span></td>
+                                        <td data-label="Цвет"><span class="badge bg-warning text-dark">Желтый</span></td>
+                                        <td data-label="Значение">
+                                            <strong>Иностранные слова без русского аналога</strong> (ст. 6 ФЗ-168).
+                                            Требуют <strong>обязательного перевода</strong> или замены русским аналогом.
+                                            Если слово из этой категории не имеет перевода в словаре "Русские аналоги" —
+                                            это <strong>потенциальное нарушение</strong>.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-label="Категория"><span class="badge bg-info">Разрешенные иностранные термины</span></td>
+                                        <td data-label="Цвет"><span class="badge bg-info">Голубой</span></td>
+                                        <td data-label="Значение">
+                                            <strong>Иностранные термины, которые разрешено использовать</strong> без перевода
+                                            (утверждены Правительством РФ или международными стандартами).
+                                            Наличие таких слов <strong>не является нарушением</strong>.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-label="Категория"><span class="badge bg-success">Нормативные слова</span></td>
+                                        <td data-label="Цвет"><span class="badge bg-success">Зеленый</span></td>
+                                        <td data-label="Значение">
+                                            <strong>Стандартные русские слова</strong> из нормативных словарей
+                                            (например, "Ожегов", "Ефремова", OpenCorpora).
+                                            Служат для <strong>подтверждения правильности</strong> использования слов.
+                                            Если слово есть в этом словаре — оно является допустимым русским словом.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-label="Категория"><span class="badge bg-purple text-white">Технические термины</span></td>
+                                        <td data-label="Цвет"><span class="badge bg-purple text-white">Фиолетовый</span></td>
+                                        <td data-label="Значение">
+                                            <strong>IT и технические термины</strong>, часто заимствованные.
+                                            Могут требовать перевода или иметь разрешенные аналоги.
+                                            Помогают идентифицировать профессиональную лексику.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-label="Категория"><span class="badge bg-teal text-white">Топонимы</span></td>
+                                        <td data-label="Цвет"><span class="badge bg-teal text-white">Бирюзовый</span></td>
+                                        <td data-label="Значение">
+                                            <strong>Географические названия</strong> (города, страны, регионы).
+                                            Иностранные топонимы <strong>требуют транскрипции</strong> на русский язык
+                                            (например, "London" → "Лондон").
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-label="Категория"><span class="badge bg-orange text-white">Аббревиатуры</span></td>
+                                        <td data-label="Цвет"><span class="badge bg-orange text-white">Оранжевый</span></td>
+                                        <td data-label="Значение">
+                                            <strong>Сокращения и аббревиатуры</strong> (например, "IT", "API", "CEO").
+                                            Могут требовать расшифровки при первом упоминании.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-label="Категория"><span class="badge bg-pink text-white">Профессионализмы и жаргон</span></td>
+                                        <td data-label="Цвет"><span class="badge bg-pink text-white">Розовый</span></td>
+                                        <td data-label="Значение">
+                                            <strong>Профессиональный сленг</strong> и узкоспециальные термины.
+                                            Могут быть допустимы в профессиональном контексте,
+                                            но <strong>не рекомендуются</strong> в официальных документах.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-label="Категория"><span class="badge bg-secondary">Термины</span></td>
+                                        <td data-label="Цвет"><span class="badge bg-secondary">Серый</span></td>
+                                        <td data-label="Значение">
+                                            <strong>Лингвистические ресурсы и тезаурус</strong>.
+                                            Содержат синонимы, антонимы, связанные понятия.
+                                            Используются для <strong>улучшения текста</strong> и поиска альтернатив.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-label="Категория"><span class="badge bg-light text-dark border">Другие словари</span></td>
+                                        <td data-label="Цвет"><span class="badge bg-light text-dark border">Светлый</span></td>
+                                        <td data-label="Значение">
+                                            <strong>Прочие словари</strong>, не попадающие в стандартные категории.
+                                            Могут содержать пользовательские списки слов, доменные имена и т.п.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <h6>Как категории взаимодействуют между собой</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card border-danger">
+                                    <div class="card-header bg-danger text-white">
+                                        <strong>Нарушения (требуют исправления)</strong>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="mb-0">
+                                            <li><strong>Запрещенные слова</strong> — всегда нарушение</li>
+                                            <li><strong>Иностранные слова</strong> без перевода — нарушение</li>
+                                            <li>Иностранное слово, имеющее перевод в "Русские аналоги" — <strong>НЕ нарушение</strong></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-success">
+                                    <div class="card-header bg-success text-white">
+                                        <strong>Допустимые слова (не нарушение)</strong>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="mb-0">
+                                            <li><strong>Нормативные слова</strong> — правильные русские слова</li>
+                                            <li><strong>Разрешенные иностранные термины</strong> — утверждены официально</li>
+                                            <li>Слова из других категорий — нейтральны, но могут требовать пояснений</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h6 class="mt-3">Примеры работы системы</h6>
+                        <div class="accordion" id="examplesAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#example1">
+                                        Пример 1: Использование иностранного слова с переводом
+                                    </button>
+                                </h2>
+                                <div id="example1" class="accordion-collapse collapse" data-bs-parent="#examplesAccordion">
+                                    <div class="accordion-body">
+                                        <p><strong>Текст:</strong> "Мы используем <em>framework</em> для разработки."</p>
+                                        <ol>
+                                            <li>Система находит слово "framework" (иностранное)</li>
+                                            <li>Находит его в словаре <strong>"Иностранные слова"</strong></li>
+                                            <li>Ищет перевод в словаре <strong>"Русские аналоги"</strong> → находит "фреймворк"</li>
+                                            <li><span class="badge bg-success">Результат:</span> Слово имеет русский аналог, но он не использован в тексте.
+                                            <strong>Рекомендация:</strong> заменить на "фреймворк" или добавить "фреймворк (framework)" при первом упоминании.</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#example2">
+                                        Пример 2: Использование разрешенного иностранного термина
+                                    </button>
+                                </h2>
+                                <div id="example2" class="accordion-collapse collapse" data-bs-parent="#examplesAccordion">
+                                    <div class="accordion-body">
+                                        <p><strong>Текст:</strong> "Мы работаем по методологии <em>Agile</em>."</p>
+                                        <ol>
+                                            <li>Система находит слово "Agile" (иностранное)</li>
+                                            <li>Находит его в словаре <strong>"Разрешенные иностранные термины"</strong></li>
+                                            <li><span class="badge bg-success">Результат:</span> Термин утвержден и разрешен к использованию.
+                                            <strong>Нарушения нет.</strong></li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#example3">
+                                        Пример 3: Использование запрещенного слова
+                                    </button>
+                                </h2>
+                                <div id="example3" class="accordion-collapse collapse" data-bs-parent="#examplesAccordion">
+                                    <div class="accordion-body">
+                                        <p><strong>Текст:</strong> "Это было просто <em>мат</em>."</p>
+                                        <ol>
+                                            <li>Система находит слово "мат"</li>
+                                            <li>Находит его в словаре <strong>"Запрещенные слова"</strong></li>
+                                            <li><span class="badge bg-danger">Результат:</span> Наличие запрещенных слов — прямое нарушение ст. 6.1 ФЗ-168.
+                                            <strong>Требуется удаление или замена.</strong></li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h6 class="mt-3">Важные замечания</h6>
+                        <div class="alert alert-warning">
+                            <ul class="mb-0">
+                                <li><strong>Официальные словари</strong> синхронизируются автоматически с утвержденных источников (Росстат, Роспатент и др.). Их нельзя редактировать.</li>
+                                <li><strong>Пользовательские словари</strong> позволяют добавлять свои слова и категории. Они хранятся отдельно и не синхронизируются.</li>
+                                <li><strong>Приоритет имеет закон:</strong> Даже если слово есть в "Нормативных словарях", но оно является запрещенным — это нарушение.</li>
+                                <li><strong>Контекст не анализируется:</strong> Система проверяет слова по отдельности. Если слово найдено в любом словаре — оно учитывается.</li>
+                                <li><strong>Регистр не важен:</strong> Проверка case-insensitive.</li>
+                            </ul>
+                        </div>
+                        
+                        <h6>Ссылки на нормативные документы</h6>
+                        <ul>
+                            <li><a href="https://ru.wikipedia.org/wiki/Федеральный_закон_%E2%84%96168-ФЗ" target="_blank">Федеральный закон № 168-ФЗ "О внесении изменений в закон "О рекламе""</a></li>
+                            <li><a href="https://docs.google.com/spreadsheets/d/1R2Hq3x5y9Y6f3Z/edit" target="_blank">Официальный перечень иностранных слов с русскими аналогами (Росстат)</a></li>
+                            <li><a href="https://www.garant.ru/products/ipo/prime/doc/74957135/" target="_blank">Постановление Правительства РФ № 258 (разрешенные термины)</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/js/admin.js"></script>
 </body>
