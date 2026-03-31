@@ -177,27 +177,65 @@ async function apiCall(endpoint, method = 'GET', body = null, isFormData = false
 
 async function loadSyncStatus() {
     try {
-        const status = await apiCall('/api/v1/sync/status');
+        // Получаем и статус синхронизации, и список загруженных словарей
+        const [status, dictionaries] = await Promise.all([
+            apiCall('/api/v1/sync/status'),
+            apiCall('/api/v1/dictionaries')
+        ]);
+        
         const container = document.getElementById('syncStatus');
+        const loadedDicts = new Set(dictionaries.map(d => d.name));
         
         let html = '';
         if (status.dictionaries) {
+            html += '<div class="table-responsive"><table class="table table-sm table-hover mb-0">';
+            html += `
+                <thead>
+                    <tr>
+                        <th>Категория</th>
+                        <th>Словарь</th>
+                        <th>Слов</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
             Object.entries(status.dictionaries).forEach(([name, info]) => {
                 const isSynced = info.synced;
-                const icon = isSynced ? '✓' : '✗';
-                const textClass = isSynced ? 'text-success' : 'text-danger';
-                const lastSync = info.last_sync ? new Date(info.last_sync).toLocaleString() : 'Никогда';
+                const isLoaded = loadedDicts.has(name);
+                const category = isLoaded ? (dictionaries.find(d => d.name === name)?.category || 'Другие словари') : '—';
+                const color = isLoaded ? getCategoryColor(category) : 'secondary';
+                const categoryBadge = isLoaded ?
+                    `<span class="badge bg-${color}">${escapeHtml(category)}</span>` :
+                    '—';
+                
+                const statusBadge = isSynced ?
+                    '<span class="badge bg-success">Актуален</span>' :
+                    '<span class="badge bg-warning text-dark">Требует обновления</span>';
+                
+                const wordCount = isSynced ? (info.word_count ? info.word_count.toLocaleString() : 'N/A') : '—';
+                const lastSync = info.last_sync ? new Date(info.last_sync).toLocaleDateString() : '—';
                 
                 html += `
-                    <div class="sync-item ${textClass} mb-2">
-                        <strong>${icon} ${escapeHtml(name)}</strong>
-                        <div class="small text-muted">
-                            ${isSynced ? `${info.word_count ? info.word_count.toLocaleString() : 0} слов` : 'Не синхронизирован'}
-                            | Последняя синхронизация: ${lastSync}
-                        </div>
-                    </div>
+                    <tr>
+                        <td>${categoryBadge}</td>
+                        <td><strong>${escapeHtml(info.official_name || name)}</strong><br><small class="text-muted">${escapeHtml(name)}</small></td>
+                        <td>${wordCount}</td>
+                        <td>${statusBadge}<br><small class="text-muted">${isSynced ? lastSync : 'Не синхронизирован'}</small></td>
+                        <td>
+                            ${isLoaded ? `
+                                <button class="btn btn-sm btn-outline-primary" onclick="exportDictionary('${name}')" title="Экспорт в XLSX">
+                                    <i class="fas fa-download"></i> XLSX
+                                </button>
+                            ` : '<span class="text-muted small">Не загружен</span>'}
+                        </td>
+                    </tr>
                 `;
             });
+            
+            html += '</tbody></table></div>';
         }
         
         const lastFullSync = status.last_full_sync ? new Date(status.last_full_sync).toLocaleString() : 'Никогда';
@@ -207,7 +245,7 @@ async function loadSyncStatus() {
         
         container.innerHTML = html || '<div class="alert alert-info">Нет данных о синхронизации</div>';
     } catch (error) {
-        document.getElementById('syncStatus').innerHTML = 
+        document.getElementById('syncStatus').innerHTML =
             '<div class="alert alert-danger">Ошибка загрузки статуса синхронизации</div>';
     }
 }
@@ -726,10 +764,12 @@ window.syncAll = syncAll;
 window.loadSyncStatus = loadSyncStatus;
 window.uploadDictionary = uploadDictionary;
 window.deleteDictionary = deleteDictionary;
+window.exportDictionary = exportDictionary;
 window.loadUserDictionaries = loadUserDictionaries;
 window.loadAllDictionariesStatus = loadAllDictionariesStatus;
 window.loadSources = loadSources;
 window.logout = logout;
+window.downloadTemplate = downloadTemplate;
 
 // Запуск инициализации
 if (document.readyState === 'loading') {
