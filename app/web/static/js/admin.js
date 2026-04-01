@@ -73,17 +73,21 @@ async function handleLogin(e) {
 // Проверка ключа через тестовый API запрос
 async function verifyKey(key) {
     try {
-        // Пробуем сделать запрос, который требует админ-прав
-        const response = await fetch('/api/v1/sync/status?' + new URLSearchParams({ admin_key: key }));
+        // Пробуем сделать запрос, который требует админ-прав, с ключом в заголовке
+        const response = await fetch('/api/v1/sync/status', {
+            method: 'GET',
+            headers: {
+                'X-Admin-Key': key
+            }
+        });
         if (response.ok) {
             return true;
         }
-        const data = await response.json();
-        if (data.detail && data.detail.includes('Неверный админ-ключ')) {
+        if (response.status === 403) {
             return false;
         }
-        // Если другой ответ, считаем что ключ валиден (например, если endpoint вернул данные)
-        return response.status === 200;
+        // Для других ошибок считаем что ключ невалиден
+        return false;
     } catch (error) {
         console.error('Key verification error:', error);
         return false;

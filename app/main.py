@@ -636,8 +636,11 @@ async def get_allowed_foreign():
 
 
 @app.get("/api/v1/sync/status")
-async def get_sync_status():
-    """Статус синхронизации всех словарей"""
+async def get_sync_status(
+    request: Request,
+    admin_auth: bool = Depends(verify_admin_key)
+):
+    """Статус синхронизации всех словарей (требуются права администратора)"""
     try:
         status = synchronizer.get_sync_status()
         return JSONResponse({
