@@ -479,10 +479,10 @@ async def import_dictionary(
                 detail=f"Поддерживается только XLSX формат. Получен: {file_ext}"
             )
         
-        # Проверяем размер файла (ограничение 10MB)
+        # Проверяем размер файла (ограничение 50MB)
         content = await file.read()
-        if len(content) > 10 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="Файл слишком большой. Максимум 10MB")
+        if len(content) > 50 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Файл слишком большой. Максимум 50MB")
         
         # Сохраняем во временный файл
         with tempfile.NamedTemporaryFile(mode='wb', suffix='.xlsx', delete=False) as tmp:
