@@ -396,9 +396,19 @@ class DictionaryManager:
             return False
         
         # Находим файл
-        filepath = Path(dict_info.get('filepath', ''))
-        if not filepath.exists():
-            # Пытаемся найти по имени
+        filepath = None
+        if 'filepath' in dict_info and dict_info['filepath']:
+            filepath = Path(dict_info['filepath'])
+        
+        if not filepath or not filepath.exists():
+            # Пытаемся найти по имени в пользовательской директории
+            # Имя словаря в файле может храниться как dict_name или с префиксом user_
+            possible_names = [dict_name, f"{dict_name}.json"]
+            # Если dict_name начинается с user_, также ищем без префикса
+            if dict_name.startswith('user_'):
+                possible_names.append(dict_name[5:])
+                possible_names.append(f"{dict_name[5:]}.json")
+            
             for f in self.user_data_dir.glob('*.json'):
                 try:
                     with open(f, 'r', encoding='utf-8') as fp:
@@ -406,18 +416,24 @@ class DictionaryManager:
                         if data.get('name') == dict_name:
                             filepath = f
                             break
-                except:
-                    pass
+                except Exception:
+                    continue
         
-        # Удаляем файл
-        if filepath.exists():
-            filepath.unlink()
+        # Если не нашли файл, всё равно удаляем из памяти
+        if filepath and filepath.exists():
+            try:
+                filepath.unlink()
+            except IsADirectoryError:
+                # Если по какой-то причине получили директорию - пропускаем
+                pass
         
         # Удаляем из памяти
-        del self.dictionaries[dict_name]
+        if dict_name in self.dictionaries:
+            del self.dictionaries[dict_name]
+            print(f"Удален пользовательский словарь: {dict_name}")
+            return True
         
-        print(f"Удален пользовательский словарь: {dict_name}")
-        return True
+        return False
 
     def export_dictionary_to_xlsx(self, dict_name: str, filepath: Path) -> None:
         """
