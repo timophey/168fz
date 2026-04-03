@@ -4,12 +4,16 @@
 
 import os
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from dictionaries.manager import DictionaryManager
 
 
 class LanguageChecker:
     """Проверка текста на соответствие требованиям закона о защите русского языка"""
+
+    # Maximum number of words to return in all_words response
+    # This prevents memory issues with very large texts
+    MAX_WORDS_IN_RESPONSE = int(os.getenv('MAX_WORDS_IN_RESPONSE', '5000'))
 
     def __init__(self, dictionaries_dir: str = None):
         """
@@ -241,6 +245,14 @@ class LanguageChecker:
         
         # Сортируем all_words по умолчанию: по частоте (убывание), затем по алфавиту
         results['all_words'].sort(key=lambda x: (-x["count"], x["word"].lower()))
+        
+        # Limit the number of words in response to prevent memory issues
+        # Store total count before truncating
+        total_words_count = len(results['all_words'])
+        if total_words_count > self.MAX_WORDS_IN_RESPONSE:
+            results['all_words'] = results['all_words'][:self.MAX_WORDS_IN_RESPONSE]
+            results['all_words_truncated'] = True
+            results['all_words_total'] = total_words_count
         
         # Генерируем рекомендации
         results['checks']['recommendations'] = self._generate_recommendations(results)

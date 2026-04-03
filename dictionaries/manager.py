@@ -2,16 +2,55 @@
 Менеджер словарей - управление загрузкой и проверкой слов
 """
 
+import os
 import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
+from collections import OrderedDict
 from .loader import DictionaryLoader
 from .morph_analyzer import MorphAnalyzer, MORPH_AVAILABLE
+from .bloom_filter import BloomFilter
+
+
+class LRUCache:
+    """
+    Simple LRU cache implementation with bounded size.
+    Uses OrderedDict for O(1) get/set operations.
+    """
+    
+    def __init__(self, maxsize: int = 100000):
+        self.maxsize = maxsize
+        self._cache: OrderedDict = OrderedDict()
+    
+    def get(self, key, default=None):
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            return self._cache[key]
+        return default
+    
+    def put(self, key, value):
+        if key in self._cache:
+            self._cache.move_to_end(key)
+        self._cache[key] = value
+        if len(self._cache) > self.maxsize:
+            self._cache.popitem(last=False)
+    
+    def __contains__(self, key):
+        return key in self._cache
+    
+    def __len__(self):
+        return len(self._cache)
+    
+    def clear(self):
+        self._cache.clear()
 
 
 class DictionaryManager:
     """Управление словарями и проверка слов"""
+
+    # Maximum size for word check cache (100K unique word+dict combinations)
+    MAX_WORD_CHECK_CACHE = 100000
 
     def __init__(self, dictionaries_dir: Path = None, sync_metadata: Dict = None, category_mapping_file: Path = None, user_data_dir: Path = None, use_morph_analysis: bool = True):
         """
@@ -30,6 +69,14 @@ class DictionaryManager:
         self.sync_metadata = sync_metadata or {}
         self.category_mapping: Dict[str, str] = {}
         self.use_morph_analysis = use_morph_analysis and MORPH_AVAILABLE
+        
+        # Bounded LRU cache for word analysis results to speed up repeated checks
+        self._word_check_cache = LRUCache(self.MAX_WORD_CHECK_CACHE)
+        
+        # Bloom filters for large dictionaries (memory-efficient negative checks)
+        # Threshold: use bloom filter for dictionaries with more than 100K words
+        self._bloom_filters: Dict[str, BloomFilter] = {}
+        self._bloom_filter_threshold = int(os.getenv('BLOOM_FILTER_THRESHOLD', '100000'))
 
         # Инициализируем морфологический анализатор если доступен
         self.morph_analyzer: Optional[MorphAnalyzer] = None
@@ -51,6 +98,9 @@ class DictionaryManager:
 
     def _load_default_dictionaries(self):
         """Загрузка словарей из папок data и user_data"""
+        # Clear existing bloom filters
+        self._bloom_filters.clear()
+        
         # Загружаем официальные словари
         if self.dictionaries_dir.exists():
             for filepath in self.dictionaries_dir.glob('*.*'):
@@ -62,7 +112,18 @@ class DictionaryManager:
                         if 'source' not in dict_data:
                             dict_data['source'] = 'official'
                         self.dictionaries[dict_name] = dict_data
-                        print(f"Загружен словарь: {dict_name} ({len(dict_data['words'])} слов) [официальный]")
+                        
+                        # Create bloom filter for large dictionaries
+                        word_count = len(dict_data['words'])
+                        if word_count > self._bloom_filter_threshold:
+                            print(f"Создание bloom filter для словаря {dict_name} ({word_count} слов)...")
+                            bloom = BloomFilter(word_count, false_positive_rate=0.001)
+                            bloom.populate_from_set(dict_data['words'])
+                            self._bloom_filters[dict_name] = bloom
+                            stats = bloom.get_stats()
+                            print(f"  Bloom filter: {stats['size_mb']:.2f} MB, {stats['hash_count']} hash functions")
+                        
+                        print(f"Загружен словарь: {dict_name} ({word_count} слов) [официальный]")
                     except Exception as e:
                         print(f"Ошибка загрузки словаря {filepath}: {e}")
         
@@ -91,7 +152,16 @@ class DictionaryManager:
                             print(f"Переименовано: {original_name} -> {dict_name}")
                         
                         self.dictionaries[dict_name] = dict_data
-                        print(f"Загружен пользовательский словарь: {dict_name} ({len(dict_data['words'])} слов)")
+                        
+                        # Create bloom filter for large user dictionaries
+                        word_count = len(dict_data['words'])
+                        if word_count > self._bloom_filter_threshold:
+                            print(f"Создание bloom filter для словаря {dict_name} ({word_count} слов)...")
+                            bloom = BloomFilter(word_count, false_positive_rate=0.001)
+                            bloom.populate_from_set(dict_data['words'])
+                            self._bloom_filters[dict_name] = bloom
+                        
+                        print(f"Загружен пользовательский словарь: {dict_name} ({word_count} слов)")
                     except Exception as e:
                         print(f"Ошибка загрузки пользовательского словаря {filepath}: {e}")
 
@@ -106,6 +176,8 @@ class DictionaryManager:
     def reload_dictionaries(self):
         """Перезагрузка словарей из директории"""
         self.dictionaries.clear()
+        self._word_check_cache.clear()
+        self._bloom_filters.clear()  # Clear bloom filters when dictionaries change
         self._load_default_dictionaries()
 
     def get_dictionary_info(self, name: str) -> Dict:
@@ -226,6 +298,17 @@ class DictionaryManager:
             }
         """
         word_lower = word.lower().strip()
+        
+        # Create cache key that includes which dictionaries to check
+        # Use frozenset of dictionary_names to make it hashable
+        dict_key = frozenset(dictionary_names) if dictionary_names else None
+        cache_key = (word_lower, dict_key)
+        
+        # Check cache first
+        cached = self._word_check_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        
         results = {
             'dictionaries': {},
             'found_via_morph': False,
@@ -240,13 +323,23 @@ class DictionaryManager:
             dictionaries_to_check = {k: v for k, v in self.dictionaries.items() if k in dictionary_names}
 
         # 1. Сначала проверяем точное совпадение
+        # For large dictionaries with bloom filters, use bloom filter for fast negative check
         for dict_name, dict_data in dictionaries_to_check.items():
+            # Check bloom filter first for large dictionaries
+            if dict_name in self._bloom_filters:
+                bloom = self._bloom_filters[dict_name]
+                if not bloom.contains(word_lower):
+                    # Word is DEFINITELY NOT in this dictionary - skip expensive set lookup
+                    continue
+            
+            # Either no bloom filter or bloom says "maybe" - do actual lookup
             if word_lower in dict_data['words']:
                 results['dictionaries'][dict_name] = [word]
                 results['found_word'] = word_lower
 
         # Если нашли точное совпадение - возвращаем
         if results['dictionaries']:
+            self._word_check_cache.put(cache_key, results)
             return results
 
         # 2. Если точного совпадения нет и включен морфоанализ - ищем базовую форму
@@ -267,6 +360,7 @@ class DictionaryManager:
                     if found_word in dict_data['words']:
                         results['dictionaries'][dict_name] = [found_word]
 
+        self._word_check_cache.put(cache_key, results)
         return results
 
     def check_text(self, text: str) -> Dict:
@@ -543,3 +637,35 @@ class DictionaryManager:
             description=description,
             overwrite=overwrite
         )
+    
+    def get_cache_stats(self) -> dict:
+        """
+        Get cache and bloom filter statistics for monitoring.
+        
+        Returns:
+            Dictionary with cache and bloom filter stats
+        """
+        # Calculate total bloom filter memory usage
+        total_bloom_memory_mb = 0
+        bloom_filter_details = {}
+        for dict_name, bloom in self._bloom_filters.items():
+            stats = bloom.get_stats()
+            bloom_filter_details[dict_name] = stats
+            total_bloom_memory_mb += stats['size_mb']
+        
+        return {
+            'word_check_cache_size': len(self._word_check_cache),
+            'word_check_cache_max': self.MAX_WORD_CHECK_CACHE,
+            'morph_analyzer_stats': self.morph_analyzer.get_cache_stats() if self.morph_analyzer else {},
+            'bloom_filters': {
+                'count': len(self._bloom_filters),
+                'total_memory_mb': round(total_bloom_memory_mb, 2),
+                'dictionaries': bloom_filter_details
+            }
+        }
+    
+    def clear_caches(self):
+        """Clear all caches."""
+        self._word_check_cache.clear()
+        if self.morph_analyzer:
+            self.morph_analyzer.clear_caches()

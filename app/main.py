@@ -737,6 +737,49 @@ async def health_check():
     })
 
 
+@app.get("/api/v1/cache/stats")
+async def get_cache_stats(admin_auth: bool = Depends(verify_admin_key)):
+    """
+    Получение статистики кэшей и bloom filters (требуются права администратора)
+    
+    Возвращает информацию о:
+    - Размере кэшей
+    - Bloom filters и их потреблении памяти
+    - Морфологическом анализаторе
+    """
+    try:
+        stats = {
+            'dictionary_manager': dict_manager.get_cache_stats(),
+            'dictionaries_count': len(dict_manager.dictionaries),
+            'total_dictionary_words': sum(len(d['words']) for d in dict_manager.dictionaries.values())
+        }
+        return JSONResponse({
+            "success": True,
+            "data": stats
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/cache/clear")
+async def clear_caches(admin_auth: bool = Depends(verify_admin_key)):
+    """
+    Очистка всех кэшей (требуются права администратора)
+    
+    Очищает:
+    - Кэш проверки слов
+    - Кэш морфологического анализатора
+    """
+    try:
+        dict_manager.clear_caches()
+        return JSONResponse({
+            "success": True,
+            "message": "Все кэши очищены"
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==================== ЗАПУСК СЕРВЕРА ====================
 
 if __name__ == "__main__":
