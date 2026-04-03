@@ -5,14 +5,15 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional
 from .loader import DictionaryLoader
+from .morph_analyzer import MorphAnalyzer, MORPH_AVAILABLE
 
 
 class DictionaryManager:
     """Управление словарями и проверка слов"""
 
-    def __init__(self, dictionaries_dir: Path = None, sync_metadata: Dict = None, category_mapping_file: Path = None, user_data_dir: Path = None):
+    def __init__(self, dictionaries_dir: Path = None, sync_metadata: Dict = None, category_mapping_file: Path = None, user_data_dir: Path = None, use_morph_analysis: bool = True):
         """
         Инициализация менеджера словарей
 
@@ -21,12 +22,23 @@ class DictionaryManager:
             sync_metadata: Метаданные синхронизации от DictionarySynchronizer
             category_mapping_file: Путь к файлу с маппингом словарей → категорий
             user_data_dir: Путь к папке с пользовательскими словарями
+            use_morph_analysis: Использовать морфологический анализ для поиска базовых форм
         """
         self.dictionaries_dir = dictionaries_dir or Path('dictionaries/data')
         self.user_data_dir = user_data_dir or Path('dictionaries/user_data')
         self.dictionaries: Dict[str, Dict] = {}
         self.sync_metadata = sync_metadata or {}
         self.category_mapping: Dict[str, str] = {}
+        self.use_morph_analysis = use_morph_analysis and MORPH_AVAILABLE
+
+        # Инициализируем морфологический анализатор если доступен
+        self.morph_analyzer: Optional[MorphAnalyzer] = None
+        if self.use_morph_analysis:
+            try:
+                self.morph_analyzer = MorphAnalyzer()
+            except Exception as e:
+                print(f"Морфологический анализ недоступ: {e}")
+                self.use_morph_analysis = False
 
         # Загружаем маппинг категорий из файла
         mapping_path = category_mapping_file if category_mapping_file else Path('dictionaries/category_mapping.json')
@@ -197,7 +209,7 @@ class DictionaryManager:
         slug = category_name.lower().replace(' ', '_').replace('и', '').replace('(', '').replace(')', '').replace(',', '').replace('.', '').replace('!', '').replace('?', '')
         return slug
 
-    def check_word(self, word: str, dictionary_names: List[str] = None) -> Dict[str, List[str]]:
+    def check_word(self, word: str, dictionary_names: List[str] = None) -> Dict:
         """
         Проверка слова по указанным словарям (или всем по умолчанию)
 
@@ -206,10 +218,20 @@ class DictionaryManager:
             dictionary_names: список имен словарей для проверки (None = все словари)
 
         Returns:
-            Словарь с результатами: {'dictionary_name': [matched_words]}
+            Словарь с результатами: {
+                'dictionaries': {'dictionary_name': [matched_words]},
+                'found_via_morph': bool,  # Найдено через морфологический анализ
+                'original_word': str,      # Оригинальное слово
+                'found_word': str          # Найденное слово (может отличаться от оригинала)
+            }
         """
         word_lower = word.lower().strip()
-        results = {}
+        results = {
+            'dictionaries': {},
+            'found_via_morph': False,
+            'original_word': word,
+            'found_word': word_lower
+        }
 
         # Определяем, какие словари проверять
         dictionaries_to_check = self.dictionaries
@@ -217,9 +239,33 @@ class DictionaryManager:
             # Фильтруем только указанные словари
             dictionaries_to_check = {k: v for k, v in self.dictionaries.items() if k in dictionary_names}
 
+        # 1. Сначала проверяем точное совпадение
         for dict_name, dict_data in dictionaries_to_check.items():
             if word_lower in dict_data['words']:
-                results[dict_name] = [word]
+                results['dictionaries'][dict_name] = [word]
+                results['found_word'] = word_lower
+
+        # Если нашли точное совпадение - возвращаем
+        if results['dictionaries']:
+            return results
+
+        # 2. Если точного совпадения нет и включен морфоанализ - ищем базовую форму
+        if self.use_morph_analysis and self.morph_analyzer:
+            # Собираем все слова из словарей для быстрого поиска
+            all_dict_words: Set[str] = set()
+            for dict_data in dictionaries_to_check.values():
+                all_dict_words.update(dict_data['words'])
+
+            # Ищем слово через морфологический анализ
+            found_word = self.morph_analyzer.find_in_dictionary(word_lower, all_dict_words)
+            
+            if found_word:
+                results['found_via_morph'] = True
+                results['found_word'] = found_word
+                # Нашли базовую форму - определяем в каком словаре она находится
+                for dict_name, dict_data in dictionaries_to_check.items():
+                    if found_word in dict_data['words']:
+                        results['dictionaries'][dict_name] = [found_word]
 
         return results
 
@@ -249,14 +295,16 @@ class DictionaryManager:
         for word in unique_words:
             word_results = self.check_word(word)
 
-            if word_results:
+            if word_results['dictionaries']:
                 # Слово найдено в каком-то словаре
-                for dict_name, matched in word_results.items():
+                for dict_name, matched in word_results['dictionaries'].items():
                     if dict_name not in results['dictionaries']:
                         results['dictionaries'][dict_name] = []
                     results['dictionaries'][dict_name].append({
                         'word': word,
-                        'count': sum(1 for w in words if w.lower() == word)
+                        'count': sum(1 for w in words if w.lower() == word),
+                        'found_via_morph': word_results['found_via_morph'],
+                        'found_word': word_results['found_word']
                     })
 
                     # Получаем категорию словаря
@@ -292,7 +340,7 @@ class DictionaryManager:
         results = self.check_word(word)
         status = []
 
-        for dict_name in results.keys():
+        for dict_name in results['dictionaries'].keys():
             category = self.get_dictionary_category(dict_name)
             dict_status = self._get_dictionary_status(dict_name)
             status.append((dict_name, category, dict_status))

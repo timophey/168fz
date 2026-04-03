@@ -103,7 +103,10 @@ class LanguageChecker:
             representative = group["representative"]
             count = group["count"]
             variations = group["variations"]
-            dict_results = self.dict_manager.check_word(word_lower, dictionary_names)
+            check_result = self.dict_manager.check_word(word_lower, dictionary_names)
+            dict_results = check_result['dictionaries']
+            found_via_morph = check_result['found_via_morph']
+            found_word = check_result['found_word']
             
             # Определяем статус и заполняем checks
             status = "ok"
@@ -155,9 +158,12 @@ class LanguageChecker:
                     
                     if is_russian:
                         status = "ok"
-                        explanation = 'Слово найдено в словаре русских слов'
-                        if word_lower in normative_dict:
+                        if found_via_morph:
+                            explanation = f'Слово найдено в словаре русских слов через морфологический анализ (базовая форма: {found_word})'
+                        elif word_lower in normative_dict:
                             explanation = 'Слово соответствует нормативному словарю русского языка'
+                        else:
+                            explanation = 'Слово найдено в словаре русских слов'
                     # 3. Проверяем иностранные слова с утвержденными русскими аналогами (ПЕРЕД allowed_foreign)
                     elif word_lower in russian_alternatives:
                         status = "foreign_with_alternative"
@@ -227,7 +233,9 @@ class LanguageChecker:
                 "recommendation": recommendation,
                 "explanation": explanation,
                 "count": count,
-                "variations_count": len(variations)
+                "variations_count": len(variations),
+                "found_via_morph": found_via_morph,
+                "found_word": found_word if found_via_morph else None
             }
             results['all_words'].append(word_data)
         
