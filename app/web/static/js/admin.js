@@ -73,8 +73,10 @@ async function handleLogin(e) {
 // Проверка ключа через тестовый API запрос
 async function verifyKey(key) {
     try {
-        // Пробуем сделать запрос, который требует админ-прав, с ключом в заголовке
-        const response = await fetch('/api/v1/sync/status', {
+        // Пробуем сделать запрос, который требует админ-прав, с ключом в заголовке и query параметре
+        // (query параметр нужен для совместимости с reverse proxy)
+        const url = `/api/v1/sync/status?admin_key=${encodeURIComponent(key)}`;
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'X-Admin-Key': key
@@ -138,6 +140,10 @@ async function apiCall(endpoint, method = 'GET', body = null, isFormData = false
     const key = getAdminKey();
     if (key) {
         options.headers['X-Admin-Key'] = key;
+        // Также добавляем ключ как query параметр для совместимости с reverse proxy
+        // (некоторые прокси могут удалять кастомные заголовки)
+        const separator = endpoint.includes('?') ? '&' : '?';
+        endpoint = `${endpoint}${separator}admin_key=${encodeURIComponent(key)}`;
     } else {
         // Если ключ не установлен, показываем ошибку и перенаправляем на логин
         showAlert('Требуется авторизация. Перенаправление на страницу входа...', 'warning');
@@ -531,10 +537,12 @@ async function loadSources() {
 
 async function downloadTemplate() {
     try {
-        const response = await fetch('/api/v1/dictionaries/template/xlsx', {
+        const key = getAdminKey();
+        const url = `/api/v1/dictionaries/template/xlsx?admin_key=${encodeURIComponent(key)}`;
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'X-Admin-Key': getAdminKey()
+                'X-Admin-Key': key
             }
         });
         
@@ -545,13 +553,13 @@ async function downloadTemplate() {
         
         // Получаем blob и скачиваем
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+        const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
+        a.href = downloadUrl;
         a.download = 'template_dictionary.xlsx';
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
+        window.URL.revokeObjectURL(downloadUrl);
         document.body.removeChild(a);
         
         showAlert('Шаблон скачан', 'success');
@@ -564,10 +572,12 @@ async function exportDictionary(dictName) {
     try {
         showAlert(`Экспорт словаря "${dictName}"...`, 'info');
         
-        const response = await fetch(`/api/v1/dictionaries/${encodeURIComponent(dictName)}/export`, {
+        const key = getAdminKey();
+        const url = `/api/v1/dictionaries/${encodeURIComponent(dictName)}/export?admin_key=${encodeURIComponent(key)}`;
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'X-Admin-Key': getAdminKey()
+                'X-Admin-Key': key
             }
         });
         
@@ -578,13 +588,13 @@ async function exportDictionary(dictName) {
         
         // Получаем blob и скачиваем
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+        const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
+        a.href = downloadUrl;
         a.download = `${dictName}.xlsx`;
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
+        window.URL.revokeObjectURL(downloadUrl);
         document.body.removeChild(a);
         
         showAlert(`Словарь "${dictName}" экспортирован`, 'success');
@@ -626,10 +636,12 @@ async function uploadDictionary() {
         if (description) formData.append('description', description);
         formData.append('overwrite', overwrite);
         
-        const response = await fetch('/api/v1/dictionaries/import', {
+        const key = getAdminKey();
+        const url = `/api/v1/dictionaries/import?admin_key=${encodeURIComponent(key)}`;
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'X-Admin-Key': getAdminKey()
+                'X-Admin-Key': key
                 // Не устанавливаем Content-Type - браузер установит multipart/form-data с boundary
             },
             body: formData
@@ -668,10 +680,12 @@ async function deleteDictionary(dictName) {
     try {
         showAlert(`Удаление словаря "${dictName}"...`, 'info');
         
-        const response = await fetch(`/api/v1/dictionaries/${encodeURIComponent(dictName)}`, {
+        const key = getAdminKey();
+        const url = `/api/v1/dictionaries/${encodeURIComponent(dictName)}?admin_key=${encodeURIComponent(key)}`;
+        const response = await fetch(url, {
             method: 'DELETE',
             headers: {
-                'X-Admin-Key': getAdminKey()
+                'X-Admin-Key': key
             }
         });
         
