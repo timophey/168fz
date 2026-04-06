@@ -102,6 +102,11 @@ class LanguageChecker:
         user_allowed_words = set(w.lower() for w in allowed_words) if allowed_words else set()
         all_allowed = allowed_foreign.union(user_allowed_words)
         
+        # DEBUG: Log allowed_words for troubleshooting
+        import sys
+        print(f"[DEBUG] allowed_words received: {allowed_words}", file=sys.stderr)
+        print(f"[DEBUG] user_allowed_words: {user_allowed_words}", file=sys.stderr)
+        
         # Проверяем каждую группу слов
         for word_lower, group in word_groups.items():
             representative = group["representative"]
@@ -128,6 +133,8 @@ class LanguageChecker:
             if word_lower in user_allowed_words:
                 status = "exempted"
                 explanation = 'Слово исключено из проверки пользователем (добавлено в allowed_words)'
+                # DEBUG: Log exempted words
+                print(f"[DEBUG] Word '{word_lower}' exempted (in user_allowed_words)", file=sys.stderr)
                 # Не добавляем в prohibited_words или foreign_words, даже если оно там было бы
             else:
                 # 1. Запрещенные слова (высший приоритет после allowed_words)
